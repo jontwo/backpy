@@ -245,13 +245,13 @@ def parse_args():
     parser.add_argument('-f', metavar='path',dest='full', required=False,\
                         help='merges all previous backups and writes\
                         them to a tar archive at the specified location')
-    parser.add_argument('-a', metavar='path' ,nargs=2,\
-                        dest='backup_path', required=False,\
+    parser.add_argument('-a', metavar='path' ,nargs=2, dest='backup',\
+                         required=False,\
                         help='adds the specified source directory to the\
                         backup index. The backups will be stored in the\
                         specified destination directory. Note that this\
                         directory should be empty')
-    parser.add_argument('-b', action='store_true', dest='backup',\
+    parser.add_argument('-b', action='store_true',\
                         help='performs a backup for all path specified in the\
                         backup.lst file')
     parser.add_argument('-s', dest='skip', metavar='regex', nargs='+',\
