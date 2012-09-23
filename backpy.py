@@ -231,13 +231,13 @@ def perform_backup(src, dest, skip=None):
     backup = Backup(dest, f, latest_backup(dest))
     backup.write_to_disk()
 
-def init():
+def init(config_file):
     try:
-        f = open('backup.lst')
+        f = open(config_file)
         f.close()
     except:
         print 'init backup directory list'
-        f = open('backup.lst', 'w+')
+        f = open(config_file, 'w+')
         f.close()
 
 def parse_args():
@@ -261,16 +261,18 @@ def parse_args():
     return vars(parser.parse_args())
 
 if __name__ == '__main__':
-    init()
-    backup_dirs = read_directory_list('backup.lst')
+    config_file = os.path.expanduser('~/.backpy')
+    init(config_file)
+    backup_dirs = read_directory_list(config_file)
     args = parse_args()
     if args['backup']:
         for directory in backup_dirs:
+            print 'backup of %s' % directory
             perform_backup(directory[0], directory[1], args['skip'])
     elif args['full'] != None:
         full_backup(args['full'])
     elif args['backup_path'] != None:
-        add_directory('backup.lst', args['backup_path'][0], args['backup_path'][1])
+        add_directory(config_file, args['backup_path'][0], args['backup_path'][1])
     else:
         print "Please specify a program option.\n"+\
             "Invoke with --help for futher information."
