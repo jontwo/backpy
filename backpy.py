@@ -32,11 +32,11 @@ __version__ = '1.0'
 __copyright__ = 'Simplified BSD license'
 
 import os
-import tarfile
 import re
+import tarfile
 from argparse import ArgumentParser
-from hashlib import md5
 from datetime import datetime
+from hashlib import md5
 
 
 class FileIndex:
@@ -127,7 +127,7 @@ class FileIndex:
 class Backup:
     def __init__(
         self, path, index, parent=None,
-        timestamp=datetime.strftime(datetime.now(), '%Y%m%d%H%M%S')
+        timestamp=datetime.now().strftime('%Y%m%d%H%M%S')
     ):
         self.__path__ = path
         self.__timestamp__ = timestamp
@@ -156,8 +156,8 @@ class Backup:
     def full_recovery(self):
         tar = tarfile.open(os.path.join(
             self.__path__,
-            'full/%s_fullbackup.tar.gz' % datetime.strftime(
-                datetime.now(), '%Y%m%d%H%M%S'
+            'full/%s_fullbackup.tar.gz' % datetime.now().strftime(
+                '%Y%m%d%H%M%S'
             )), 'w:gz')
         backups = all_backups(self.__path__)
         i = 0
@@ -219,10 +219,7 @@ def latest_backup(path):
 def read_directory_list(path):
     l = open(path)
     dirs = []
-    print 'read dir list'
     for line in l:
-        print line
-        print 'appending %s' % line[:-1].split(',')
         dirs.append(line[:-1].split(','))
     l.close()
     return dirs
