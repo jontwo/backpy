@@ -80,7 +80,7 @@ class FileIndex:
                     self.__files__[fullname] = ''.join(
                         ['%x' % ord(h) for h in md5hash.digest()]
                     )
-                except:
+                except IOError:
                     print 'skipping file: %s' % fullname
 
     def files(self):
@@ -235,6 +235,19 @@ def write_directory_list(path, dirlist):
     l.close()
 
 
+def show_directory_list(dirs):
+    print 'Backup directories:'
+    for line in dirs:
+        if len(line) < 2:
+            print 'Bad config entry:'
+            print line
+            return
+        print 'From %s to %s' % (line[0], line[1])
+        skips = ', '.join(line[2:])
+        if skips:
+            print '  skipping %s' % skips
+
+
 def add_directory(path, src, dest):
     l = open(path, 'a+')
     new_line = '%s,%s\n' % (src, dest)
@@ -269,7 +282,7 @@ def init(file_config):
     try:
         f = open(file_config)
         f.close()
-    except:
+    except IOError:
         print 'init backup directory list'
         f = open(file_config, 'w+')
         f.close()
@@ -277,22 +290,28 @@ def init(file_config):
 
 def parse_args():
     parser = ArgumentParser(description='Command line backup utility')
-    parser.add_argument('-f', metavar='path', dest='full', required=False,
-                        help='merges all previous backups and writes\
-                        them to a tar archive at the specified location')
-    parser.add_argument('-a', metavar='path', nargs=2,
-                        dest='backup_path', required=False,
-                        help='adds the specified source directory to the\
-                        backup index. The backups will be stored in the\
-                        specified destination directory. Note that this\
-                        directory should be empty')
-    parser.add_argument('-b', action='store_true', dest='backup',
-                        help='performs a backup for all path specified in the\
-                        backup.lst file')
-    parser.add_argument('-s', dest='skip', metavar='regex', nargs='+',
-                        required=False,
-                        help='skips all files/directories that match the given\
-                        regular expression')
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument('-l', '--list', dest='list', action='store_true',
+                       required=False, help='list the all the directories \
+                       currently in the config file.')
+    group.add_argument('-a', '--add', metavar='path', nargs=2,
+                       dest='add_path', required=False,
+                       help='adds the specified source directory to the\
+                       backup index. The backups will be stored in the\
+                       specified destination directory.')
+    group.add_argument('-s', '--skip', dest='skip', metavar='regex', nargs='+',
+                       required=False,
+                       help='skips all files/directories that match the given\
+                       regular expression')
+    group.add_argument('-d', '--delete', metavar='path', nargs=2,
+                       dest='delete_path', required=False,
+                       help='remove the specified source and destination\
+                       directories from the backup.lst file.')
+    group.add_argument('-b', '--backup', action='store_true', dest='backup',
+                       help='performs a backup for all path specified in the\
+                       backup.lst file')
+    group.add_argument('-r', '--restore', action='store_true', dest='restore',
+                       help='restore selected files **NOT IMPLEMENTED**')
     return vars(parser.parse_args())
 
 if __name__ == '__main__':
@@ -300,16 +319,24 @@ if __name__ == '__main__':
     init(config_file)
     backup_dirs = read_directory_list(config_file)
     args = parse_args()
-    if args['backup']:
-        for directory in backup_dirs:
-            print 'backup of %s' % directory
-            perform_backup(directory[0], directory[1], args['skip'])
-    elif not args['full'] is None:
-        full_backup(args['full'])
-    elif not args['backup_path'] is None:
+    if args['skip']:
+        for arg in args['skip']:
+            print 'skipping %s' % arg
+    elif args['backup']:
+        print 'backing up'
+        # for directory in backup_dirs:
+        #     print 'backup of %s' % directory
+        #     perform_backup(directory[0], directory[1], args['skip'])
+    elif args['restore']:
+        print 'restore is not implemented'
+    elif args['add_path']:
         add_directory(
-            config_file, args['backup_path'][0], args['backup_path'][1]
+            config_file, args['add_path'][0], args['add_path'][1]
         )
+    elif args['delete_path']:
+        print 'removing path'
+    elif args['list']:
+        show_directory_list(backup_dirs)
     else:
         print "Please specify a program option.\n" + \
               "Invoke with --help for futher information."
