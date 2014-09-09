@@ -1,5 +1,5 @@
 #!/usr/bin/python2
-
+#coding=utf-8
 """
 Copyright (c) 2012, Steffen Schneider <stes94@ymail.com>
 All rights reserved.
@@ -37,6 +37,7 @@ import tarfile
 from argparse import ArgumentParser
 from datetime import datetime
 from hashlib import md5
+from pdb import set_trace
 
 
 class FileIndex:
@@ -47,32 +48,34 @@ class FileIndex:
         self.__dirs__ = []
         self.__path__ = path
         self.__exclusion_rules__ = exclusion_rules
+        if not self.is_valid(path):
+            print 'WARNING: root dir %s is excluded' % path
         pass
 
     def is_valid(self, filename):
-        if self.__exclusion_rules__ is not None:
+        if self.__exclusion_rules__:
             for regex in self.__exclusion_rules__:
+                # add 'contains' option to use this wrapper?
+                # match_string = u'(\S)*{0:s}(\S)*'.format(regex)
                 if re.match(regex, filename) is not None:
                     return False
         return True
 
-    # TODO get skip to work
     def gen_index(self):
         for dirname, dirnames, filenames in os.walk(self.__path__):
             if not self.is_valid(dirname):
-                print 'skip directory: %s (exclusion)' % dirname
                 continue
             for subdirname in dirnames:
                 fullpath = os.path.join(dirname, subdirname)
                 if self.is_valid(fullpath):
                     self.__dirs__.append(fullpath)
                 else:
-                    print 'skip directory: %s (exclusion)' % fullpath
+                    print 'skipping directory: %s' % fullpath
             for filename in filenames:
                 fullname = os.path.join(dirname, filename)
-                if not self.is_valid(fullname):
-                    print 'skipping file: %s (exclusion)' % fullname
-                    continue
+                # if not self.is_valid(fullname):
+                #     print 'skipping file: %s' % fullname
+                #     continue
                 try:
                     f = open(fullname)
                     md5hash = md5(f.read())
@@ -81,7 +84,7 @@ class FileIndex:
                         ['%x' % ord(h) for h in md5hash.digest()]
                     )
                 except IOError:
-                    print 'skipping file: %s' % fullname
+                    print 'WARNING: could not process file: %s' % fullname
 
     def files(self):
         return self.__files__.keys()
@@ -267,14 +270,21 @@ def full_backup(path):
         print 'backup successful'
 
 
-def perform_backup(src, dest, skip=None):
+def perform_backup(directories):
+    if len(directories) < 2:
+        print 'Input error: Not enough directories to backup'
+        print directories
+        return
+    src = directories[0]
+    dest = directories[1]
+    skip = directories[2:] if len(directories) > 2 else None
     print 'backup of directory %s to %s' % (src, dest)
     if skip is not None:
-        print 'skipping files/directories that match %s' % ' or '.join(skip)
+        print 'skipping directories that match %s' % ' or '.join(skip)
     f = FileIndex(src, skip)
     f.gen_index()
-    backup = Backup(dest, f, latest_backup(dest))
-    backup.write_to_disk()
+    # backup = Backup(dest, f, latest_backup(dest))
+    # backup.write_to_disk()
     # TODO delete indexes
 
 
@@ -288,6 +298,8 @@ def init(file_config):
         f.close()
 
 
+# TODO: add 'contains' option
+# like skip, but wraps regex in (\S)*regex(\S)*
 def parse_args():
     parser = ArgumentParser(description='Command line backup utility')
     group = parser.add_mutually_exclusive_group()
@@ -301,7 +313,7 @@ def parse_args():
                        specified destination directory.')
     group.add_argument('-s', '--skip', dest='skip', metavar='regex', nargs='+',
                        required=False,
-                       help='skips all files/directories that match the given\
+                       help='skips all directories that match the given\
                        regular expression')
     group.add_argument('-d', '--delete', metavar='path', nargs=2,
                        dest='delete_path', required=False,
@@ -323,10 +335,9 @@ if __name__ == '__main__':
         for arg in args['skip']:
             print 'skipping %s' % arg
     elif args['backup']:
-        print 'backing up'
-        # for directory in backup_dirs:
-        #     print 'backup of %s' % directory
-        #     perform_backup(directory[0], directory[1], args['skip'])
+        for directory in backup_dirs:
+            perform_backup(directory)
+            print ''
     elif args['restore']:
         print 'restore is not implemented'
     elif args['add_path']:
