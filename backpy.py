@@ -50,12 +50,11 @@ class FileIndex:
         self.__exclusion_rules__ = exclusion_rules
         if not self.is_valid(path):
             print 'WARNING: root dir %s is excluded' % path
-        pass
 
     def is_valid(self, filename):
         if self.__exclusion_rules__:
             for regex in self.__exclusion_rules__:
-                # add 'contains' option to use this wrapper?
+                # TODO add 'contains' option to use this wrapper?
                 # match_string = u'(\S)*{0:s}(\S)*'.format(regex)
                 if re.match(regex, filename) is not None:
                     return False
@@ -95,29 +94,28 @@ class FileIndex:
     def write_index(self, path=None):
         if path is None:
             path = os.path.join(self.__path__, '.index')
-        index = open(path, 'w+')
-        index.writelines(["%s\n" % s for s in self.__dirs__])
-        index.write('# files\n')
-        index.writelines(
-            ['%s@@@%s\n' % (f, self.hash(f)) for f in self.files()]
-        )
-        index.flush()
-        index.close()
+        with open(path, 'w+') as index:
+            index.writelines(["%s\n" % s for s in self.__dirs__])
+            index.write('# files\n')
+            index.writelines(
+                ['%s@@@%s\n' % (f, self.hash(f)) for f in self.files()]
+            )
 
     def read_index(self, path=None):
         if path is None:
             path = os.path.join(self.__path__, '.index')
-        index = open(path)
-        line = index.readline()
-        # read all directories
-        while line != '# files\n':
-            self.__dirs__.append(line[:len(line) - 1])
+        if not os.path.exists(path):
+            return
+        with open(path) as index:
             line = index.readline()
-            # read all files
-        for line in index.readlines():
-            [fname, _hash] = line[:len(line) - 1].split('@@@')
-            self.__files__[fname] = _hash
-        index.close()
+            # read all directories
+            while line != '# files\n':
+                self.__dirs__.append(line[:len(line) - 1])
+                line = index.readline()
+                # read all files
+            for line in index.readlines():
+                [fname, _hash] = line[:len(line) - 1].split('@@@')
+                self.__files__[fname] = _hash
 
     def get_diff(self, index=None):
         filelist = []
@@ -143,19 +141,21 @@ class Backup:
                             '%s_backup.tar.gz' % self.__timestamp__)
 
     def write_to_disk(self):
-        tar = tarfile.open(self.get_tarpath(), 'w:gz')
-        # write index
-        path = './.%s_index' % self.__timestamp__
-        self.__new_index__.write_index(path)
-        tar.add(path, '.index')
-        print 'deleting %s...' % path
-        del path
-        # write files
-        for f in self.__new_index__.get_diff(self.__old_index__):
-            print 'adding %s...' % f
-            tar.add(f)
-        tar.close()
+        with tarfile.open(self.get_tarpath(), 'w:gz') as tar:
+            # write index
+            path = os.path.join('.', '.%s_index' % self.__timestamp__)
+            self.__new_index__.write_index(path)
+            tar.add(path, '.index')
+            # delete temp index now we've written it
+            delete_temp_files(path)
+            # write files
+            for f in self.__new_index__.get_diff(self.__old_index__):
+                print 'adding %s...' % f
+                tar.add(f)
+                # TODO do not keep index if nothing added?
 
+    # TODO platform independent paths
+    # TODO recovery of single file (search all backups for most recent)
     def full_recovery(self):
         tar = tarfile.open(os.path.join(
             self.__path__,
@@ -188,15 +188,41 @@ class Backup:
         return len(queue)
 
 
+def delete_temp_files(path):
+    """Attempt to delete temporary files or folders in the given path.
+    Just carry on if any can't be deleted."""
+    if os.path.isfile(path):
+        # single file - delete it and return
+        try:
+            os.unlink(path)
+        except WindowsError:
+            print 'WARNING: could not delete %s' % path
+        return
+
+    if os.path.isdir(path):
+        # directory - delete subfiles and folders then delete it
+        for f in os.listdir(path):
+            delete_temp_files(os.path.join(path, f))
+        try:
+            os.rmdir(path)
+        except WindowsError:
+            print 'WARNING: could not delete %s' % path
+
+
 def read_backup(path):
     timestamp = os.path.basename(path).split('_')[0]
-    print 'time %s path %s' % (timestamp, path)
-    tar = tarfile.open(path, 'r:*')
-    temp_path = './.%sindex' % timestamp
-    tar.extract('.index', temp_path)
-    index = FileIndex(temp_path)
-    index.read_index(os.path.join(temp_path, '.index'))
-    return Backup(os.path.dirname(path), index, None, timestamp)
+    temp_path = os.path.join('.', '.%sindex' % timestamp)
+    try:
+        with tarfile.open(path, 'r:*') as tar:
+            tar.extract('.index', temp_path)
+    except tarfile.ReadError as e:
+        print e.message
+    finally:
+        index = FileIndex(temp_path)
+        index.read_index(os.path.join(temp_path, '.index'))
+        # delete temp index now we've read it
+        delete_temp_files(temp_path)
+        return Backup(os.path.dirname(path), index, None, timestamp)
 
 
 def all_backups(path):
@@ -220,22 +246,19 @@ def latest_backup(path):
 
 
 def read_directory_list(path):
-    l = open(path)
-    dirs = []
-    for line in l:
-        dirs.append(line[:-1].split(','))
-    l.close()
+    with open(path) as l:
+        dirs = []
+        for line in l:
+            dirs.append(line[:-1].split(','))
     return dirs
 
 
 def write_directory_list(path, dirlist):
-    l = open(path, "w+")
-    for pair in dirlist:
-        s = '%s,%s\n' % (pair[0], pair[1])
-        print 'add entry %s in directory list' % s[:-1]
-        l.write(s)
-    l.flush()
-    l.close()
+    with open(path, "w+") as l:
+        for pair in dirlist:
+            s = '%s,%s\n' % (pair[0], pair[1])
+            print 'add entry %s in directory list' % s[:-1]
+            l.write(s)
 
 
 def show_directory_list(dirs):
@@ -252,14 +275,13 @@ def show_directory_list(dirs):
 
 
 def add_directory(path, src, dest):
-    l = open(path, 'a+')
-    new_line = '%s,%s\n' % (src, dest)
-    if not new_line.lower() in (line.lower() for line in l):
-        l.write(new_line)
-        l.flush()
-        l.close()
+    with open(path, 'a+') as l:
+        new_line = '%s,%s\n' % (src, dest)
+        if not new_line.lower() in (line.lower() for line in l):
+            l.write(new_line)
 
 
+# TODO remove?
 def full_backup(path):
     backup = latest_backup(path)
     files_left = backup.full_recovery()
@@ -280,12 +302,11 @@ def perform_backup(directories):
     skip = directories[2:] if len(directories) > 2 else None
     print 'backup of directory %s to %s' % (src, dest)
     if skip is not None:
-        print 'skipping directories that match %s' % ' or '.join(skip)
+        print '  skipping directories that match %s' % ' or '.join(skip)
     f = FileIndex(src, skip)
     f.gen_index()
-    # backup = Backup(dest, f, latest_backup(dest))
-    # backup.write_to_disk()
-    # TODO delete indexes
+    backup = Backup(dest, f, latest_backup(dest))
+    backup.write_to_disk()
 
 
 def init(file_config):
@@ -341,6 +362,7 @@ if __name__ == '__main__':
     elif args['restore']:
         print 'restore is not implemented'
     elif args['add_path']:
+        # use write_directory_list to write all at once?
         add_directory(
             config_file, args['add_path'][0], args['add_path'][1]
         )
