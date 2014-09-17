@@ -245,6 +245,20 @@ def latest_backup(path):
         if len(backups) > 0 else None
 
 
+def get_index(dirlist, src, dest):
+    """Find the entry in the config file with the given source and
+    destination and return the index.
+    Returns None if not found."""
+    for i in range(len(dirlist)):
+        if (
+            len(dirlist[i]) >= 2 and
+            dirlist[i][0] == src and
+            dirlist[i][1] == dest
+        ):
+            return i
+    return None
+
+
 def read_directory_list(path):
     with open(path) as l:
         dirs = []
@@ -255,10 +269,8 @@ def read_directory_list(path):
 
 def write_directory_list(path, dirlist):
     with open(path, "w+") as l:
-        for pair in dirlist:
-            s = '%s,%s\n' % (pair[0], pair[1])
-            print 'add entry %s in directory list' % s[:-1]
-            l.write(s)
+        for line in dirlist:
+            l.write(','.join(line) + '\n')
 
 
 def show_directory_list(dirs):
@@ -275,33 +287,49 @@ def show_directory_list(dirs):
 
 
 def add_directory(path, src, dest):
-    with open(path, 'a+') as l:
-        new_line = '%s,%s\n' % (src, dest)
-        if new_line.lower() in (line.lower() for line in l):
-            print '%s, %s already added to config file' % (src, dest)
-            return
-        print 'adding new entry source: %s, destination: %s' % (src, dest)
-        l.write(new_line)
+    dirs = read_directory_list(path)
+    if get_index(dirs, src, dest):
+        print '%s, %s already added to config file' % (src, dest)
+        return
+    print 'adding new entry source: %s, destination: %s' % (src, dest)
+    dirs.append([src, dest])
+    write_directory_list(path, dirs)
 
 
 def remove_directory(path, src, dest):
     print 'removing entry source: %s, destination: %s' % (src, dest)
     dirs = read_directory_list(path)
-    found = False
-
-    with open(path, 'w+') as l:
-        for line in dirs:
-            if (
-                len(line) >= 2 and
-                line[0] == src and
-                line[1] == dest
-            ):
-                found = True
-                continue
-            l.write(','.join(line) + '\n')
-
-    if not found:
+    index = get_index(dirs, src, dest)
+    if index:
+        del dirs[index]
+        write_directory_list(path, dirs)
+    else:
         print 'ERROR: entry not found'
+
+
+def add_skip(path, skips):
+    if len(skips) < 3:
+        print 'usage: backpy.py -s <src> <dest> <skip dir> {... <skip dir>}'
+        return
+    dirs = read_directory_list(path)
+    src = skips[0]
+    dest = skips[1]
+    print 'adding skips to backup of %s to %s:' % (src, dest)
+    index = get_index(dirs, src, dest)
+    if not index:
+        print 'ERROR: entry not found'
+        return
+
+    line = dirs[index]
+    for skip in skips[2:]:
+        if skip in line:
+            print 'ERROR: %s already added, aborting.' % skip
+            return
+        else:
+            line.append(skip)
+            print '  %s' % skip
+
+    write_directory_list(path, dirs)
 
 
 # TODO remove?
@@ -376,8 +404,7 @@ if __name__ == '__main__':
     backup_dirs = read_directory_list(config_file)
     args = parse_args()
     if args['skip']:
-        for arg in args['skip']:
-            print 'skipping %s' % arg
+        add_skip(config_file, args['skip'])
     elif args['backup']:
         for directory in backup_dirs:
             perform_backup(directory)
@@ -385,7 +412,6 @@ if __name__ == '__main__':
     elif args['restore']:
         print 'restore is not implemented'
     elif args['add_path']:
-        # use write_directory_list to write all at once?
         add_directory(
             config_file, args['add_path'][0], args['add_path'][1]
         )
