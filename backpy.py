@@ -277,8 +277,31 @@ def show_directory_list(dirs):
 def add_directory(path, src, dest):
     with open(path, 'a+') as l:
         new_line = '%s,%s\n' % (src, dest)
-        if not new_line.lower() in (line.lower() for line in l):
-            l.write(new_line)
+        if new_line.lower() in (line.lower() for line in l):
+            print '%s, %s already added to config file' % (src, dest)
+            return
+        print 'adding new entry source: %s, destination: %s' % (src, dest)
+        l.write(new_line)
+
+
+def remove_directory(path, src, dest):
+    print 'removing entry source: %s, destination: %s' % (src, dest)
+    dirs = read_directory_list(path)
+    found = False
+
+    with open(path, 'w+') as l:
+        for line in dirs:
+            if (
+                len(line) >= 2 and
+                line[0] == src and
+                line[1] == dest
+            ):
+                found = True
+                continue
+            l.write(','.join(line) + '\n')
+
+    if not found:
+        print 'ERROR: entry not found'
 
 
 # TODO remove?
@@ -286,7 +309,7 @@ def full_backup(path):
     backup = latest_backup(path)
     files_left = backup.full_recovery()
     if files_left > 0:
-        print 'error: not all files could be recovered\n%d files left' \
+        print 'ERROR: not all files could be recovered\n%d files left' \
               % files_left
     else:
         print 'backup successful'
@@ -367,7 +390,9 @@ if __name__ == '__main__':
             config_file, args['add_path'][0], args['add_path'][1]
         )
     elif args['delete_path']:
-        print 'removing path'
+        remove_directory(
+            config_file, args['delete_path'][0], args['delete_path'][1]
+        )
     elif args['list']:
         show_directory_list(backup_dirs)
     else:
