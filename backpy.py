@@ -1,5 +1,5 @@
 #!/usr/bin/python2
-#coding=utf-8
+# -*- coding: utf-8 -*-
 """
 Copyright (c) 2012, Steffen Schneider <stes94@ymail.com>
 All rights reserved.
@@ -49,13 +49,13 @@ class FileIndex:
         self.__path__ = path
         self.__exclusion_rules__ = exclusion_rules
         if not self.is_valid(path):
-            print 'WARNING: root dir %s is excluded' % path
+            print 'WARNING: root dir %s does not exist or is excluded' % path
 
     def is_valid(self, filename):
+        if not os.path.exists(filename):
+            return False
         if self.__exclusion_rules__:
             for regex in self.__exclusion_rules__:
-                # TODO add 'contains' option to use this wrapper?
-                # match_string = u'(\S)*{0:s}(\S)*'.format(regex)
                 if re.match(regex, filename) is not None:
                     return False
         return True
@@ -141,6 +141,10 @@ class Backup:
                             '%s_backup.tar.gz' % self.__timestamp__)
 
     def write_to_disk(self):
+        if not len(self.__new_index__.files()):
+            print 'WARNING: no files to back up'
+            return
+
         with tarfile.open(self.get_tarpath(), 'w:gz') as tar:
             # write index
             path = os.path.join('.', '.%s_index' % self.__timestamp__)
@@ -226,16 +230,15 @@ def read_backup(path):
 
 
 def all_backups(path):
+    backups = []
     if os.path.isabs(path) is None:
         path = os.path.join(os.path.curdir, path)
-    if not os.path.exists(path):
-        os.makedirs(path)
-    files = os.listdir(path)
-    backups = []
-    for f in files:
-        if os.path.basename(f).endswith('.tar.gz'):
-            backups.append(f)
-    backups.sort(reverse=True)
+    if os.path.exists(path):
+        files = os.listdir(path)
+        for f in files:
+            if os.path.basename(f).endswith('.tar.gz'):
+                backups.append(f)
+        backups.sort(reverse=True)
     return backups
 
 
@@ -296,7 +299,7 @@ def add_directory(path, src, dest):
     write_directory_list(path, dirs)
 
 
-def remove_directory(path, src, dest):
+def delete_directory(path, src, dest):
     print 'removing entry source: %s, destination: %s' % (src, dest)
     dirs = read_directory_list(path)
     index = get_index(dirs, src, dest)
@@ -307,9 +310,12 @@ def remove_directory(path, src, dest):
         print 'ERROR: entry not found'
 
 
-def add_skip(path, skips):
+def add_skip(path, skips, add_regex=None):
     if len(skips) < 3:
-        print 'usage: backpy.py -s <src> <dest> <skip dir> {... <skip dir>}'
+        print 'skip syntax: <src> <dest> <skip dir> {... <skip dir>}'
+        print 'source and destination directories must be specified first'
+        print 'then one or more skip directories can be added'
+        print 'note: -s "(\S)*<string>(\S)*" is equivalent to -c "<string>"'
         return
     dirs = read_directory_list(path)
     src = skips[0]
@@ -322,9 +328,15 @@ def add_skip(path, skips):
 
     line = dirs[index]
     for skip in skips[2:]:
-        if skip in line:
-            print 'ERROR: %s already added, aborting.' % skip
+        # if 'contains' option is used and regex hasn't already been added,
+        # wrap skip string in any character regex
+        if add_regex and u'(\S)*' != skip[:5] and u'(\S)*' != skip[-5:]:
+            skip = u'(\S)*{0:s}(\S)*'.format(skip)
+        if skip in line[2:]:
+            print 'ERROR: %s already added, aborting' % skip
             return
+        if skip == line[0]:
+            print 'WARNING: %s would skip root dir, not added' % skip
         else:
             line.append(skip)
             print '  %s' % skip
@@ -345,7 +357,7 @@ def full_backup(path):
 
 def perform_backup(directories):
     if len(directories) < 2:
-        print 'Input error: Not enough directories to backup'
+        print 'ERROR: Not enough directories to backup'
         print directories
         return
     src = directories[0]
@@ -370,30 +382,33 @@ def init(file_config):
         f.close()
 
 
-# TODO: add 'contains' option
-# like skip, but wraps regex in (\S)*regex(\S)*
 def parse_args():
     parser = ArgumentParser(description='Command line backup utility')
     group = parser.add_mutually_exclusive_group()
     group.add_argument('-l', '--list', dest='list', action='store_true',
-                       required=False, help='list the all the directories \
-                       currently in the config file.')
+                       required=False,
+                       help='list the all the directories currently in the\
+                       config file')
     group.add_argument('-a', '--add', metavar='path', nargs=2,
                        dest='add_path', required=False,
                        help='adds the specified source directory to the\
                        backup index. The backups will be stored in the\
                        specified destination directory.')
-    group.add_argument('-s', '--skip', dest='skip', metavar='regex', nargs='+',
-                       required=False,
+    group.add_argument('-b', '--backup', action='store_true', dest='backup',
+                       help='performs a backup for all path specified in the\
+                       backup.lst file')
+    group.add_argument('-s', '--skip', dest='skip', metavar='string',
+                       nargs='+', required=False,
+                       help='skips all directories that match the given\
+                       string(s)')
+    group.add_argument('-c', '--contains', dest='contains', metavar='regex',
+                       nargs='+', required=False,
                        help='skips all directories that match the given\
                        regular expression')
     group.add_argument('-d', '--delete', metavar='path', nargs=2,
                        dest='delete_path', required=False,
                        help='remove the specified source and destination\
-                       directories from the backup.lst file.')
-    group.add_argument('-b', '--backup', action='store_true', dest='backup',
-                       help='performs a backup for all path specified in the\
-                       backup.lst file')
+                       directories from the backup.lst file')
     group.add_argument('-r', '--restore', action='store_true', dest='restore',
                        help='restore selected files **NOT IMPLEMENTED**')
     return vars(parser.parse_args())
@@ -403,24 +418,26 @@ if __name__ == '__main__':
     init(config_file)
     backup_dirs = read_directory_list(config_file)
     args = parse_args()
-    if args['skip']:
+    if args['list']:
+        show_directory_list(backup_dirs)
+    elif args['add_path']:
+        add_directory(
+            config_file, args['add_path'][0], args['add_path'][1]
+        )
+    elif args['delete_path']:
+        delete_directory(
+            config_file, args['delete_path'][0], args['delete_path'][1]
+        )
+    elif args['skip']:
         add_skip(config_file, args['skip'])
+    elif args['contains']:
+        add_skip(config_file, args['contains'], True)
     elif args['backup']:
         for directory in backup_dirs:
             perform_backup(directory)
             print ''
     elif args['restore']:
         print 'restore is not implemented'
-    elif args['add_path']:
-        add_directory(
-            config_file, args['add_path'][0], args['add_path'][1]
-        )
-    elif args['delete_path']:
-        remove_directory(
-            config_file, args['delete_path'][0], args['delete_path'][1]
-        )
-    elif args['list']:
-        show_directory_list(backup_dirs)
     else:
         print "Please specify a program option.\n" + \
               "Invoke with --help for futher information."
