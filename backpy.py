@@ -291,8 +291,8 @@ def show_directory_list(dirs):
 
 def add_directory(path, src, dest):
     dirs = read_directory_list(path)
-    if get_index(dirs, src, dest):
-        print '%s, %s already added to config file' % (src, dest)
+    if get_index(dirs, src, dest) is not None:
+        print 'ERROR: %s, %s already added to config file' % (src, dest)
         return
     print 'adding new entry source: %s, destination: %s' % (src, dest)
     dirs.append([src, dest])
@@ -303,11 +303,12 @@ def delete_directory(path, src, dest):
     print 'removing entry source: %s, destination: %s' % (src, dest)
     dirs = read_directory_list(path)
     index = get_index(dirs, src, dest)
-    if index:
-        del dirs[index]
-        write_directory_list(path, dirs)
-    else:
+    if index is None:
         print 'ERROR: entry not found'
+        return
+
+    del dirs[index]
+    write_directory_list(path, dirs)
 
 
 def add_skip(path, skips, add_regex=None):
@@ -322,7 +323,7 @@ def add_skip(path, skips, add_regex=None):
     dest = skips[1]
     print 'adding skips to backup of %s to %s:' % (src, dest)
     index = get_index(dirs, src, dest)
-    if not index:
+    if index is None:
         print 'ERROR: entry not found'
         return
 
