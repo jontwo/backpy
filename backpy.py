@@ -253,10 +253,18 @@ def get_index(dirlist, src, dest):
     destination and return the index.
     Returns None if not found."""
     for i in range(len(dirlist)):
+        list_src = dirlist[i][0]
+        list_dest = dirlist[i][1]
+        # case insensitive compare for windows
+        if os.getenv("OS") == "Windows_NT":
+            list_src = list_src.lower()
+            list_dest = list_dest.lower()
+            src = src.lower()
+            dest = dest.lower()
         if (
             len(dirlist[i]) >= 2 and
-            dirlist[i][0] == src and
-            dirlist[i][1] == dest
+            list_src == src and
+            list_dest == dest
         ):
             return i
     return None
@@ -290,11 +298,32 @@ def show_directory_list(dirs):
 
 
 def add_directory(path, src, dest):
+    """Add new source and destination directories to the config file.
+    Make sure paths are absolute, exist, and are not already added before adding."""
     dirs = read_directory_list(path)
     if get_index(dirs, src, dest) is not None:
         print 'ERROR: %s, %s already added to config file' % (src, dest)
         return
+    if not os.path.isabs(src):
+        print 'WARNING: relative path used for source dir, adding current dir'
+        src = os.path.abspath(src)
+    if not os.path.isabs(dest):
+        print 'WARNING: relative path used for destination dir, adding current dir'
+        dest = os.path.abspath(dest)
+    # check config file again now paths are absolute
+    if get_index(dirs, src, dest) is not None:
+        print 'ERROR: %s, %s already added to config file' % (src, dest)
+        return
+
     print 'adding new entry source: %s, destination: %s' % (src, dest)
+    # now check paths exist. dest can be created, but fail if src not found
+    if not os.path.exists(src):
+        print 'ERROR: source path %s not found' % src
+        return
+    if not os.path.exists(dest):
+        print 'WARNING: destination path %s not found, creating directory' % dest
+        os.mkdir(dest)
+
     dirs.append([src, dest])
     write_directory_list(path, dirs)
 
@@ -394,7 +423,9 @@ def parse_args():
                        dest='add_path', required=False,
                        help='adds the specified source directory to the\
                        backup index. The backups will be stored in the\
-                       specified destination directory.')
+                       specified destination directory.\
+                       If relative paths used, the current working directory\
+                       will be added.')
     group.add_argument('-b', '--backup', action='store_true', dest='backup',
                        help='performs a backup for all path specified in the\
                        backup.lst file')
