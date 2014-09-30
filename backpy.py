@@ -31,13 +31,26 @@ __author__ = 'Steffen Schneider'
 __version__ = '1.0'
 __copyright__ = 'Simplified BSD license'
 
+import logging
+import logging.handlers
 import os
 import re
+import sys
 import tarfile
 from argparse import ArgumentParser
 from datetime import datetime
 from hashlib import md5
 from pdb import set_trace
+
+
+class SpecialFormatter(logging.Formatter):
+    FORMATS = {logging.DEBUG: "DEBUG: %(lineno)d: %(message)s",
+               logging.INFO: "%(message)s",
+               'DEFAULT': "%(levelname)s: %(message)s"}
+
+    def format(self, record):
+        self._fmt = self.FORMATS.get(record.levelno, self.FORMATS['DEFAULT'])
+        return logging.Formatter.format(self, record)
 
 
 class FileIndex:
@@ -49,7 +62,7 @@ class FileIndex:
         self.__path__ = path
         self.__exclusion_rules__ = exclusion_rules
         if not self.is_valid(path):
-            print 'WARNING: root dir %s does not exist or is excluded' % path
+            logger.warning('root dir %s does not exist or is excluded' % path)
 
     def is_valid(self, filename):
         if not os.path.exists(filename):
@@ -61,6 +74,7 @@ class FileIndex:
         return True
 
     def gen_index(self):
+        logger.debug('generating index')
         for dirname, dirnames, filenames in os.walk(self.__path__):
             if not self.is_valid(dirname):
                 continue
@@ -69,11 +83,11 @@ class FileIndex:
                 if self.is_valid(fullpath):
                     self.__dirs__.append(fullpath)
                 else:
-                    print 'skipping directory: %s' % fullpath
+                    logger.info('skipping directory: %s' % fullpath)
             for filename in filenames:
                 fullname = os.path.join(dirname, filename)
                 # if not self.is_valid(fullname):
-                #     print 'skipping file: %s' % fullname
+                #     logger.info('skipping file: %s' % fullname)
                 #     continue
                 try:
                     f = open(fullname)
@@ -83,7 +97,7 @@ class FileIndex:
                         ['%x' % ord(h) for h in md5hash.digest()]
                     )
                 except IOError:
-                    print 'WARNING: could not process file: %s' % fullname
+                    logger.warning('could not process file: %s' % fullname)
 
     def files(self):
         return self.__files__.keys()
@@ -94,6 +108,7 @@ class FileIndex:
     def write_index(self, path=None):
         if path is None:
             path = os.path.join(self.__path__, '.index')
+        logger.debug('writing index to %s' % path)
         with open(path, 'w+') as index:
             index.writelines(["%s\n" % s for s in self.__dirs__])
             index.write('# files\n')
@@ -104,7 +119,9 @@ class FileIndex:
     def read_index(self, path=None):
         if path is None:
             path = os.path.join(self.__path__, '.index')
+        logger.debug('reading index at %s' % path)
         if not os.path.exists(path):
+            logger.debug('not found, returning')
             return
         with open(path) as index:
             line = index.readline()
@@ -142,9 +159,10 @@ class Backup:
 
     def write_to_disk(self):
         if not len(self.__new_index__.files()):
-            print 'WARNING: no files to back up'
+            logger.warning('no files to back up')
             return
 
+        logger.debug('writing files to backup')
         with tarfile.open(self.get_tarpath(), 'w:gz') as tar:
             # write index
             path = os.path.join('.', '.%s_index' % self.__timestamp__)
@@ -154,7 +172,7 @@ class Backup:
             delete_temp_files(path)
             # write files
             for f in self.__new_index__.get_diff(self.__old_index__):
-                print 'adding %s...' % f
+                logger.info('adding %s...' % f)
                 tar.add(f)
                 # TODO do not keep index if nothing added?
 
@@ -200,7 +218,7 @@ def delete_temp_files(path):
         try:
             os.unlink(path)
         except WindowsError:
-            print 'WARNING: could not delete %s' % path
+            logger.warning('could not delete %s' % path)
         return
 
     if os.path.isdir(path):
@@ -210,7 +228,7 @@ def delete_temp_files(path):
         try:
             os.rmdir(path)
         except WindowsError:
-            print 'WARNING: could not delete %s' % path
+            logger.warning('could not delete %s' % path)
 
 
 def read_backup(path):
@@ -220,7 +238,7 @@ def read_backup(path):
         with tarfile.open(path, 'r:*') as tar:
             tar.extract('.index', temp_path)
     except tarfile.ReadError as e:
-        print e.message
+        logger.error(e.message)
     finally:
         index = FileIndex(temp_path)
         index.read_index(os.path.join(temp_path, '.index'))
@@ -230,6 +248,7 @@ def read_backup(path):
 
 
 def all_backups(path):
+    logger.debug('finding previous backups')
     backups = []
     if os.path.isabs(path) is None:
         path = os.path.join(os.path.curdir, path)
@@ -252,6 +271,7 @@ def get_index(dirlist, src, dest):
     """Find the entry in the config file with the given source and
     destination and return the index.
     Returns None if not found."""
+    logger.debug('get index of %s, %s' % (src, dest))
     for i in range(len(dirlist)):
         list_src = dirlist[i][0]
         list_dest = dirlist[i][1]
@@ -271,6 +291,7 @@ def get_index(dirlist, src, dest):
 
 
 def read_directory_list(path):
+    logger.debug('reading directories from config')
     with open(path) as l:
         dirs = []
         for line in l:
@@ -279,49 +300,55 @@ def read_directory_list(path):
 
 
 def write_directory_list(path, dirlist):
+    logger.debug('writing directories to config')
     with open(path, "w+") as l:
         for line in dirlist:
             l.write(','.join(line) + '\n')
 
 
 def show_directory_list(dirs):
-    print 'Backup directories:'
+    logger.info('backup directories:')
     for line in dirs:
         if len(line) < 2:
-            print 'Bad config entry:'
-            print line
+            logger.error('bad config entry:\n%s' % line)
             return
-        print 'From %s to %s' % (line[0], line[1])
+        logger.info('from %s to %s' % (line[0], line[1]))
         skips = ', '.join(line[2:])
         if skips:
-            print '  skipping %s' % skips
+            logger.info('  skipping %s' % skips)
 
 
 def add_directory(path, src, dest):
     """Add new source and destination directories to the config file.
-    Make sure paths are absolute, exist, and are not already added before adding."""
+    Make sure paths are absolute, exist, and
+    are not already added before adding."""
+    logger.debug('adding directories %s, %s to list' % (src, dest))
     dirs = read_directory_list(path)
     if get_index(dirs, src, dest) is not None:
-        print 'ERROR: %s, %s already added to config file' % (src, dest)
+        logger.error('%s, %s already added to config file' % (src, dest))
         return
     if not os.path.isabs(src):
-        print 'WARNING: relative path used for source dir, adding current dir'
+        logger.warning('relative path used for source dir, adding current dir')
         src = os.path.abspath(src)
     if not os.path.isabs(dest):
-        print 'WARNING: relative path used for destination dir, adding current dir'
+        logger.warning(
+            'relative path used for destination dir, adding current dir'
+        )
         dest = os.path.abspath(dest)
     # check config file again now paths are absolute
     if get_index(dirs, src, dest) is not None:
-        print 'ERROR: %s, %s already added to config file' % (src, dest)
+        logger.error('%s, %s already added to config file' % (src, dest))
         return
 
-    print 'adding new entry source: %s, destination: %s' % (src, dest)
+    logger.info('adding new entry source: %s, destination: %s' % (src, dest))
     # now check paths exist. dest can be created, but fail if src not found
     if not os.path.exists(src):
-        print 'ERROR: source path %s not found' % src
+        logger.error('source path %s not found' % src)
         return
     if not os.path.exists(dest):
-        print 'WARNING: destination path %s not found, creating directory' % dest
+        logger.warning(
+            'destination path %s not found, creating directory' % dest
+        )
         os.mkdir(dest)
 
     dirs.append([src, dest])
@@ -329,11 +356,11 @@ def add_directory(path, src, dest):
 
 
 def delete_directory(path, src, dest):
-    print 'removing entry source: %s, destination: %s' % (src, dest)
+    logger.info('removing entry source: %s, destination: %s' % (src, dest))
     dirs = read_directory_list(path)
     index = get_index(dirs, src, dest)
     if index is None:
-        print 'ERROR: entry not found'
+        logger.error('entry not found')
         return
 
     del dirs[index]
@@ -350,10 +377,10 @@ def add_skip(path, skips, add_regex=None):
     dirs = read_directory_list(path)
     src = skips[0]
     dest = skips[1]
-    print 'adding skips to backup of %s to %s:' % (src, dest)
+    logger.info('adding skips to backup of %s to %s:' % (src, dest))
     index = get_index(dirs, src, dest)
     if index is None:
-        print 'ERROR: entry not found'
+        logger.error('entry not found')
         return
 
     line = dirs[index]
@@ -363,13 +390,13 @@ def add_skip(path, skips, add_regex=None):
         if add_regex and u'(\S)*' != skip[:5] and u'(\S)*' != skip[-5:]:
             skip = u'(\S)*{0:s}(\S)*'.format(skip)
         if skip in line[2:]:
-            print 'ERROR: %s already added, aborting' % skip
+            logger.error('%s already added, aborting' % skip)
             return
         if skip == line[0]:
-            print 'WARNING: %s would skip root dir, not added' % skip
+            logger.warning('%s would skip root dir, not added' % skip)
         else:
             line.append(skip)
-            print '  %s' % skip
+            logger.info('  %s' % skip)
 
     write_directory_list(path, dirs)
 
@@ -379,23 +406,24 @@ def full_backup(path):
     backup = latest_backup(path)
     files_left = backup.full_recovery()
     if files_left > 0:
-        print 'ERROR: not all files could be recovered\n%d files left' \
-              % files_left
+        logger.error(
+            'not all files could be recovered\n%d files left' % files_left
+        )
     else:
-        print 'backup successful'
+        logger.info('backup successful')
 
 
 def perform_backup(directories):
     if len(directories) < 2:
-        print 'ERROR: Not enough directories to backup'
-        print directories
+        logger.error('not enough directories to backup')
+        logger.error(directories)
         return
     src = directories[0]
     dest = directories[1]
     skip = directories[2:] if len(directories) > 2 else None
-    print 'backup of directory %s to %s' % (src, dest)
+    logger.info('backup of directory %s to %s' % (src, dest))
     if skip is not None:
-        print '  skipping directories that match %s' % ' or '.join(skip)
+        logger.info('  skipping directories that match %s' % ' or '.join(skip))
     f = FileIndex(src, skip)
     f.gen_index()
     backup = Backup(dest, f, latest_backup(dest))
@@ -403,17 +431,20 @@ def perform_backup(directories):
 
 
 def init(file_config):
+    logger.debug('opening config file')
     try:
         f = open(file_config)
         f.close()
     except IOError:
-        print 'init backup directory list'
+        logger.debug('not found, creating new config')
         f = open(file_config, 'w+')
         f.close()
 
 
 def parse_args():
     parser = ArgumentParser(description='Command line backup utility')
+    parser.add_argument('-v', '--verbose', action='store_true', dest='verbose',
+                        help='enable console logging')
     group = parser.add_mutually_exclusive_group()
     group.add_argument('-l', '--list', dest='list', action='store_true',
                        required=False,
@@ -446,10 +477,28 @@ def parse_args():
     return vars(parser.parse_args())
 
 if __name__ == '__main__':
+    args = parse_args()
+
+    # set up logging
+    logger = logging.getLogger('backpy')
+    logger.setLevel(logging.DEBUG)
+    sh = logging.StreamHandler(sys.stderr)
+    sh.setFormatter(SpecialFormatter())
+    sh.setLevel(logging.INFO)
+    if args['verbose']:
+        sh.setLevel(logging.DEBUG)
+    logger.addHandler(sh)
+    fh = logging.handlers.RotatingFileHandler(
+        os.path.expanduser('~/backpy.log'), maxBytes=1000000, backupCount=3
+    )
+    fh.setLevel(logging.DEBUG)
+    ff = logging.Formatter('%(asctime)s: %(levelname)s: %(name)s: %(message)s')
+    fh.setFormatter(ff)
+    logger.addHandler(fh)
+
     config_file = os.path.expanduser('~/.backpy')
     init(config_file)
     backup_dirs = read_directory_list(config_file)
-    args = parse_args()
     if args['list']:
         show_directory_list(backup_dirs)
     elif args['add_path']:
@@ -469,7 +518,10 @@ if __name__ == '__main__':
             perform_backup(directory)
             print ''
     elif args['restore']:
-        print 'restore is not implemented'
+        logger.warning('restore is not implemented')
     else:
-        print "Please specify a program option.\n" + \
-              "Invoke with --help for futher information."
+        print "please specify a program option.\n" + \
+            "invoke with --help for futher information."
+        logger.setLevel(logging.NOTSET)
+
+    logger.info('done')
