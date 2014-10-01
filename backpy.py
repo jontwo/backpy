@@ -518,18 +518,10 @@ if __name__ == '__main__':
         for directory in backup_dirs:
             perform_backup(directory)
             print ''
+        logger.info('done. elapsed time = %s' % (datetime.now() - start))
     elif args['restore']:
         logger.warning('restore is not implemented')
+        logger.info('done. elapsed time = %s' % (datetime.now() - start))
     else:
         print "please specify a program option.\n" + \
             "invoke with --help for futher information."
-        logger.setLevel(logging.NOTSET)
-
-    elapsed = datetime.now() - start
-    hours, remainder = divmod(elapsed.total_seconds(), 3600)
-    minutes, seconds = divmod(remainder, 60)
-    _, frac = divmod(seconds, 1)
-    logger.info(
-        'done. elapsed time = %02d:%02d:%02d.%02d' %
-        (hours, minutes, seconds, (frac * 100) + 0.5)
-    )
