@@ -477,6 +477,7 @@ def parse_args():
     return vars(parser.parse_args())
 
 if __name__ == '__main__':
+    start = datetime.now()
     args = parse_args()
 
     # set up logging
@@ -524,4 +525,11 @@ if __name__ == '__main__':
             "invoke with --help for futher information."
         logger.setLevel(logging.NOTSET)
 
-    logger.info('done')
+    elapsed = datetime.now() - start
+    hours, remainder = divmod(elapsed.total_seconds(), 3600)
+    minutes, seconds = divmod(remainder, 60)
+    _, frac = divmod(seconds, 1)
+    logger.info(
+        'done. elapsed time = %02d:%02d:%02d.%02d' %
+        (hours, minutes, seconds, (frac * 100) + 0.5)
+    )
