@@ -54,14 +54,15 @@ class SpecialFormatter(logging.Formatter):
 
 
 class FileIndex:
-    def __init__(self, path, exclusion_rules=None):
+    def __init__(self, path, exclusion_rules=None, reading=False):
         if exclusion_rules is None:
             exclusion_rules = []
         self.__files__ = dict()
         self.__dirs__ = []
         self.__path__ = path
         self.__exclusion_rules__ = exclusion_rules
-        if not self.is_valid(path):
+        # suppress warning when reading an existing index
+        if not reading and not self.is_valid(path):
             logger.warning('root dir %s does not exist or is excluded' % path)
 
     def is_valid(self, filename):
@@ -102,8 +103,15 @@ class FileIndex:
     def files(self):
         return self.__files__.keys()
 
-    def hash(self, f):
-        return self.__files__[f] if f in self.__files__ else None
+    def hash(self, f, exact_match=True):
+        if exact_match:
+            return self.__files__[f] if f in self.__files__ else None
+        else:
+            index = get_filename_index(f, self.__files__)
+            return self.hash(self.files()[index]) if index else None
+
+    def is_folder(self, f):
+        return list_contains(f, self.__dirs__)
 
     def write_index(self, path=None):
         if path is None:
@@ -209,6 +217,37 @@ class Backup:
         tar.close()
         return len(queue)
 
+    def contains_file(self, file, exact_match=True):
+        """look for a specific file in the index, return the hash
+        if found or None if not"""
+        logger.debug('find file %s' % file)
+        return self.__new_index__.hash(file, exact_match)
+
+    def contains_folder(self, folder):
+        """look for a specific folder in the index"""
+        logger.debug('find folder %s' % folder)
+        return self.__new_index__.is_folder(folder)
+
+    def restore_folder(self, folder):
+        logger.debug('restoring folder %s' % folder)
+
+        # get destination dir
+        # index destination dir
+        # diff then restore changed files
+
+        # dest = None
+        # for dirs in dirlist:
+        #     if string_equals(dirs[1], os.path.dirname(zip_path)):
+        #         dest = dirs[0]
+        # if dest:
+        #     logger.info('restoring %s from %s to %s' % (folder, zip_path, dest))
+
+    def restore_file(self, file):
+        logger.debug('restoring file %s' % file)
+        # get destination dir
+        # index destination dir
+        # diff then restore if file changed
+
 
 def delete_temp_files(path):
     """Attempt to delete temporary files or folders in the given path.
@@ -232,6 +271,7 @@ def delete_temp_files(path):
 
 
 def read_backup(path):
+    logger.debug('reading backup %s' % path)
     timestamp = os.path.basename(path).split('_')[0]
     temp_path = os.path.join('.', '.%sindex' % timestamp)
     try:
@@ -240,7 +280,7 @@ def read_backup(path):
     except tarfile.ReadError as e:
         logger.error(e.message)
     finally:
-        index = FileIndex(temp_path)
+        index = FileIndex(temp_path, reading=True)
         index.read_index(os.path.join(temp_path, '.index'))
         # delete temp index now we've read it
         delete_temp_files(temp_path)
@@ -267,24 +307,52 @@ def latest_backup(path):
         if len(backups) > 0 else None
 
 
-def get_index(dirlist, src, dest):
+def string_equals(s1, s2):
+    """Compare two strings, ignoring case for Windows"""
+    if os.getenv("OS") == "Windows_NT":
+        s1 = s1.lower()
+        s2 = s2.lower()
+    return s1 == s2
+
+
+def string_contains(s1, s2):
+    """Check if one string contains another, ignoring case for Windows"""
+    if os.getenv("OS") == "Windows_NT":
+        s1 = s1.lower()
+        s2 = s2.lower()
+    return s1 in s2
+
+
+def list_contains(s1, l2, exact_match=True):
+    """Check if list contains string, ignoring case for Windows"""
+    if os.getenv("OS") == "Windows_NT":
+        s1 = s1.lower()
+        l2 = map(str.lower, l2)
+    return s1 in l2
+
+
+def get_filename_index(s1, l2):
+    """Get index for filename in list contains string, ignoring case for
+    Windows and ignoring path. Returns None if not found"""
+    if os.getenv("OS") == "Windows_NT":
+        s1 = s1.lower()
+        l2 = map(str.lower, l2)
+    try:
+        return map(os.path.basename, l2).index(s1)
+    except ValueError:
+        return None
+
+
+def get_config_index(dirlist, src, dest):
     """Find the entry in the config file with the given source and
     destination and return the index.
     Returns None if not found."""
     logger.debug('get index of %s, %s' % (src, dest))
     for i in range(len(dirlist)):
-        list_src = dirlist[i][0]
-        list_dest = dirlist[i][1]
-        # case insensitive compare for windows
-        if os.getenv("OS") == "Windows_NT":
-            list_src = list_src.lower()
-            list_dest = list_dest.lower()
-            src = src.lower()
-            dest = dest.lower()
         if (
             len(dirlist[i]) >= 2 and
-            list_src == src and
-            list_dest == dest
+            string_equals(dirlist[i][0], src) and
+            string_equals(dirlist[i][1], dest)
         ):
             return i
     return None
@@ -324,7 +392,7 @@ def add_directory(path, src, dest):
     are not already added before adding."""
     logger.debug('adding directories %s, %s to list' % (src, dest))
     dirs = read_directory_list(path)
-    if get_index(dirs, src, dest) is not None:
+    if get_config_index(dirs, src, dest) is not None:
         logger.error('%s, %s already added to config file' % (src, dest))
         return
     if not os.path.isabs(src):
@@ -336,7 +404,7 @@ def add_directory(path, src, dest):
         )
         dest = os.path.abspath(dest)
     # check config file again now paths are absolute
-    if get_index(dirs, src, dest) is not None:
+    if get_config_index(dirs, src, dest) is not None:
         logger.error('%s, %s already added to config file' % (src, dest))
         return
 
@@ -358,7 +426,7 @@ def add_directory(path, src, dest):
 def delete_directory(path, src, dest):
     logger.info('removing entry source: %s, destination: %s' % (src, dest))
     dirs = read_directory_list(path)
-    index = get_index(dirs, src, dest)
+    index = get_config_index(dirs, src, dest)
     if index is None:
         logger.error('entry not found')
         return
@@ -378,7 +446,7 @@ def add_skip(path, skips, add_regex=None):
     src = skips[0]
     dest = skips[1]
     logger.info('adding skips to backup of %s to %s:' % (src, dest))
-    index = get_index(dirs, src, dest)
+    index = get_config_index(dirs, src, dest)
     if index is None:
         logger.error('entry not found')
         return
@@ -401,18 +469,6 @@ def add_skip(path, skips, add_regex=None):
     write_directory_list(path, dirs)
 
 
-# TODO remove?
-def full_backup(path):
-    backup = latest_backup(path)
-    files_left = backup.full_recovery()
-    if files_left > 0:
-        logger.error(
-            'not all files could be recovered\n%d files left' % files_left
-        )
-    else:
-        logger.info('backup successful')
-
-
 def perform_backup(directories):
     if len(directories) < 2:
         logger.error('not enough directories to backup')
@@ -428,6 +484,115 @@ def perform_backup(directories):
     f.gen_index()
     backup = Backup(dest, f, latest_backup(dest))
     backup.write_to_disk()
+
+
+def search_backup(path, file, files, folders, exact_match=True):
+    logger.debug('searching %s (exact=%s)' % (path, exact_match))
+    last_hash = None
+    for zip_path in all_backups(path):
+        backup = read_backup(os.path.join(path, zip_path))
+        this_hash = backup.contains_file(file, exact_match)
+        if this_hash:
+            if this_hash != last_hash:
+                logger.debug('hash %s#' % this_hash)
+                files.append(backup)
+                last_hash = this_hash
+        else:
+            logger.debug('file not found, trying folders')
+            # TODO partial match of folder name
+            if backup.contains_folder(file):
+                logger.debug('appending full zip path')
+                folders.append(backup)
+
+
+def find_file_in_backup(dirlist, file):
+    files = []
+    folders = []
+    searched = []
+    found = False
+
+    # try a few times to find file, with less strict criteria on each pass
+    for attempt in xrange(4):
+        logger.debug('attempt %s' % attempt)
+        for dirs in dirlist:
+            if 0 == attempt:
+                # check if input matches a config entry
+                if string_equals(dirs[0], file):
+                    logger.debug('restoring all backups from %s' % dirs[0])
+                    for zip_path in all_backups(dirs[1]):
+                        read_backup(zip_path).restore_folder(file)
+                    return
+
+            if 1 == attempt:
+                # then look in all folders for exact string entered
+                if string_contains(dirs[0], file) or \
+                   string_contains(file, dirs[0]):
+                    searched.append(dirs)
+                    logger.debug('string contains, looking in %s' % dirs[1])
+                    search_backup(dirs[1], file, files, folders)
+
+            if 2 == attempt:
+                # then look in remaining folders for exact string entered
+                if dirs not in searched:
+                    logger.debug('dirs not searched, looking in %s' % dirs[1])
+                    search_backup(dirs[1], file, files, folders)
+
+            if 3 == attempt:
+                # then look again in case partial path given
+                logger.debug('looking for partial match in %s' % dirs[1])
+                search_backup(
+                    dirs[1], file, files, folders, exact_match=False
+                )
+
+        if files:
+            found = True
+            index = 0
+            # select version to restore
+            if len(files) > 1:
+                print 'file %s found in:' % file
+                count = 1
+                for backup in files:
+                    print '[%s] %s' % (count, backup.get_tarpath())
+                    count += 1
+                # TODO get user to choose
+                # update index
+
+            files[index].restore_file(file)
+        elif folders:
+            found = True
+            # restore all folders, oldest first
+            folders.reverse()
+            for backup in folders:
+                backup.restore_folder(file)
+
+        if found:
+            logger.debug('files found, returning')
+            return
+
+    if not found:
+        logger.warning('%s not found' % file)
+
+# fork if no args(all) or specific files/folders
+# restore all - for each src,dest from config, get zips in
+# reverse order and unzip from dest to src
+# specific - try and find file/folder by matching path to
+# src paths in config then search zips in that dest folder
+# if not found, search again in all zips
+# file - list all versions then ask which to restore
+# folder - restore all instances of that folder in reverse date order
+
+
+def perform_restore(dirlist, files):
+    if not files:
+        # doing restore all
+        logger.warning('restore all not implemented')
+        # for file in dirlist:
+        #     logger.info('  %s' % file[0])
+
+    for file in files:
+        # restoring individual files/folders
+        logger.debug('looking for %s' % file)
+        find_file_in_backup(dirlist, os.path.normpath(file))
 
 
 def init(file_config):
@@ -453,9 +618,9 @@ def parse_args():
     group.add_argument('-a', '--add', metavar='path', nargs=2,
                        dest='add_path', required=False,
                        help='adds the specified source directory to the\
-                       backup index. The backups will be stored in the\
+                       backup index. the backups will be stored in the\
                        specified destination directory.\
-                       If relative paths used, the current working directory\
+                       if relative paths used, the current working directory\
                        will be added.')
     group.add_argument('-b', '--backup', action='store_true', dest='backup',
                        help='performs a backup for all path specified in the\
@@ -472,8 +637,11 @@ def parse_args():
                        dest='delete_path', required=False,
                        help='remove the specified source and destination\
                        directories from the backup.lst file')
-    group.add_argument('-r', '--restore', action='store_true', dest='restore',
-                       help='restore selected files **NOT IMPLEMENTED**')
+    group.add_argument('-r', '--restore', metavar='path', nargs='*',
+                       dest='restore', required=False, help='restore selected\
+                       files to their original folders. can give full file\
+                       path or just the file name. leave blank to restore\
+                       all.')
     return vars(parser.parse_args())
 
 if __name__ == '__main__':
@@ -519,8 +687,8 @@ if __name__ == '__main__':
             perform_backup(directory)
             print ''
         logger.info('done. elapsed time = %s' % (datetime.now() - start))
-    elif args['restore']:
-        logger.warning('restore is not implemented')
+    elif args['restore'] is not None:
+        perform_restore(backup_dirs, args['restore'])
         logger.info('done. elapsed time = %s' % (datetime.now() - start))
     else:
         print "please specify a program option.\n" + \
