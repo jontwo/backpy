@@ -90,18 +90,15 @@ class FileIndex:
                 # if not self.is_valid(fullname):
                 #     logger.info('skipping file: %s' % fullname)
                 #     continue
-                try:
-                    f = open(fullname)
-                    md5hash = md5(f.read())
-                    f.close()
-                    self.__files__[fullname] = ''.join(
-                        ['%x' % ord(h) for h in md5hash.digest()]
-                    )
-                except IOError:
-                    logger.warning('could not process file: %s' % fullname)
+                digest = get_file_hash(fullname)
+                if digest:
+                    self.__files__[fullname] = digest
 
     def files(self):
         return self.__files__.keys()
+
+    def skips(self):
+        return self.__exclusion_rules__
 
     def hash(self, f, exact_match=True):
         if exact_match:
@@ -241,11 +238,43 @@ class Backup:
         # if dest:
         #     logger.info('restoring %s from %s to %s' % (folder, zip_path, dest))
 
-    def restore_file(self, file):
-        logger.debug('restoring file %s' % file)
+    def restore_file(self, filename):
+        logger.debug(
+            'restoring file %s from %s' % (filename, self.get_tarpath())
+        )
+        fullname = filename
         # get destination dir
-        # index destination dir
-        # diff then restore if file changed
+        dest = os.path.dirname(filename)
+        if not dest:
+            # make sure dest and file are full paths
+            index = get_filename_index(filename, self.__new_index__.files())
+            if not index:
+                logger.error('cannot find file to restore')
+                return
+            fullname = self.__new_index__.files()[index]
+            dest = os.path.dirname(fullname)
+        logger.debug('got dest dir %s' % dest)
+
+        # hash file in destination dir and
+        # restore if file changed or not found in dest
+        if get_file_hash(fullname) == self.__new_index__.hash(fullname):
+            logger.info('file unchanged, cancelling restore')
+            return
+
+        logger.debug('file changed, restoring')
+        # TODO restore
+
+
+def get_file_hash(fullname):
+    try:
+        logger.debug('hashing %s' % fullname)
+        with open(fullname) as f:
+            md5hash = md5(f.read())
+            return ''.join(
+                ['%x' % ord(h) for h in md5hash.digest()]
+            )
+    except IOError:
+        logger.warning('could not process file: %s' % fullname)
 
 
 def delete_temp_files(path):
@@ -485,12 +514,12 @@ def perform_backup(directories):
     backup.write_to_disk()
 
 
-def search_backup(path, file, files, folders, exact_match=True):
+def search_backup(path, filename, files, folders, exact_match=True):
     logger.debug('searching %s (exact=%s)' % (path, exact_match))
     last_hash = None
     for zip_path in all_backups(path):
         backup = read_backup(os.path.join(path, zip_path))
-        this_hash = backup.contains_file(file, exact_match)
+        this_hash = backup.contains_file(filename, exact_match)
         if this_hash:
             if this_hash != last_hash:
                 logger.debug('hash %s#' % this_hash)
@@ -499,16 +528,15 @@ def search_backup(path, file, files, folders, exact_match=True):
         else:
             logger.debug('file not found, trying folders')
             # TODO partial match of folder name
-            if backup.contains_folder(file):
+            if backup.contains_folder(filename):
                 logger.debug('appending full zip path')
                 folders.append(backup)
 
 
-def find_file_in_backup(dirlist, file):
+def find_file_in_backup(dirlist, filename):
     files = []
     folders = []
     searched = []
-    found = False
 
     # try a few times to find file, with less strict criteria on each pass
     for attempt in xrange(4):
@@ -516,60 +544,75 @@ def find_file_in_backup(dirlist, file):
         for dirs in dirlist:
             if 0 == attempt:
                 # check if input matches a config entry
-                if string_equals(dirs[0], file):
+                if string_equals(dirs[0], filename):
                     logger.debug('restoring all backups from %s' % dirs[0])
                     for zip_path in all_backups(dirs[1]):
-                        read_backup(zip_path).restore_folder(file)
+                        read_backup(zip_path).restore_folder(filename)
                     return
 
             if 1 == attempt:
                 # then look in all folders for exact string entered
-                if string_contains(dirs[0], file) or \
-                   string_contains(file, dirs[0]):
+                if string_contains(dirs[0], filename) or \
+                   string_contains(filename, dirs[0]):
                     searched.append(dirs)
                     logger.debug('string contains, looking in %s' % dirs[1])
-                    search_backup(dirs[1], file, files, folders)
+                    search_backup(dirs[1], filename, files, folders)
 
             if 2 == attempt:
                 # then look in remaining folders for exact string entered
                 if dirs not in searched:
                     logger.debug('dirs not searched, looking in %s' % dirs[1])
-                    search_backup(dirs[1], file, files, folders)
+                    search_backup(dirs[1], filename, files, folders)
 
             if 3 == attempt:
                 # then look again in case partial path given
                 logger.debug('looking for partial match in %s' % dirs[1])
                 search_backup(
-                    dirs[1], file, files, folders, exact_match=False
+                    dirs[1], filename, files, folders, exact_match=False
                 )
 
+        # found something, restore it and return
         if files:
-            found = True
             index = 0
             # select version to restore
             if len(files) > 1:
-                print 'file %s found in:' % file
+                logger.info('multiple versions of %s found:' % filename)
                 count = 1
                 for backup in files:
-                    print '[%s] %s' % (count, backup.get_tarpath())
+                    logger.info('[%s] %s' % (count, backup.get_tarpath()))
                     count += 1
-                # TODO get user to choose
-                # update index
+                logger.info(
+                    'please choose a version to restore '
+                    '(leave blank to cancel):'
+                )
+                chosen = ''
+                try:
+                    chosen = raw_input()
+                    if not chosen:
+                        return  # user has cancelled restore
+                    index = int(chosen) - 1
+                    logger.debug('index=%s' % index)
+                    # now check index is valid
+                    if index < 0:
+                        raise IndexError
+                    _ = files[index]  # noqa
+                except (TypeError, IndexError, ValueError):
+                    logger.error('"%s" is not a valid choice' % chosen)
+                    return
 
-            files[index].restore_file(file)
+            files[index].restore_file(filename)
         elif folders:
-            found = True
             # restore all folders, oldest first
+            # (should have been discovered in date order)
             folders.reverse()
             for backup in folders:
-                backup.restore_folder(file)
+                backup.restore_folder(filename)
 
-        if found:
+        if files or folders:
             logger.debug('files found, returning')
             return
 
-    if not found:
-        logger.warning('%s not found' % file)
+    logger.warning('%s not found' % filename)
 
 # fork if no args(all) or specific files/folders
 # restore all - for each src,dest from config, get zips in
