@@ -40,7 +40,7 @@ import tarfile
 from argparse import ArgumentParser
 from datetime import datetime
 from hashlib import md5
-from pdb import set_trace
+from pdb import set_trace  # noqa
 
 
 class SpecialFormatter(logging.Formatter):
@@ -65,12 +65,12 @@ class FileIndex:
         if not reading and not self.is_valid(path):
             logger.warning('root dir %s does not exist or is excluded' % path)
 
-    def is_valid(self, filename):
-        if not os.path.exists(filename):
+    def is_valid(self, f):
+        if not os.path.exists(f):
             return False
         if self.__exclusion_rules__:
             for regex in self.__exclusion_rules__:
-                if re.match(regex, filename) is not None:
+                if re.match(regex, f) is not None:
                     return False
         return True
 
@@ -185,7 +185,6 @@ class Backup:
                 # TODO do not keep index if nothing added?
 
     # TODO platform independent paths
-    # TODO recovery of single file (search all backups for most recent)
     def full_recovery(self):
         tar = tarfile.open(os.path.join(
             self.__path__,
@@ -217,16 +216,16 @@ class Backup:
         tar.close()
         return len(queue)
 
-    def contains_file(self, file, exact_match=True):
+    def contains_file(self, f, exact_match=True):
         """look for a specific file in the index, return the hash
         if found or None if not"""
-        logger.debug('find file %s' % file)
-        return self.__new_index__.hash(file, exact_match)
+        logger.debug('find file %s' % f)
+        return self.__new_index__.hash(f, exact_match)
 
-    def contains_folder(self, folder):
+    def contains_folder(self, f):
         """look for a specific folder in the index"""
-        logger.debug('find folder %s' % folder)
-        return self.__new_index__.is_folder(folder)
+        logger.debug('find folder %s' % f)
+        return self.__new_index__.is_folder(f)
 
     def restore_folder(self, folder):
         logger.debug('restoring folder %s' % folder)
@@ -323,7 +322,7 @@ def string_contains(s1, s2):
     return s1 in s2
 
 
-def list_contains(s1, l2, exact_match=True):
+def list_contains(s1, l2):
     """Check if list contains string, ignoring case for Windows"""
     if os.getenv("OS") == "Windows_NT":
         s1 = s1.lower()
@@ -589,10 +588,10 @@ def perform_restore(dirlist, files):
         # for file in dirlist:
         #     logger.info('  %s' % file[0])
 
-    for file in files:
+    for f in files:
         # restoring individual files/folders
-        logger.debug('looking for %s' % file)
-        find_file_in_backup(dirlist, os.path.normpath(file))
+        logger.debug('looking for %s' % f)
+        find_file_in_backup(dirlist, os.path.normpath(f))
 
 
 def init(file_config):
