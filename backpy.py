@@ -42,6 +42,8 @@ from datetime import datetime
 from hashlib import md5
 from pdb import set_trace  # noqa
 
+ROOT_PATH = os.path.abspath(os.sep)
+
 
 class SpecialFormatter(logging.Formatter):
     FORMATS = {logging.DEBUG: "DEBUG: %(lineno)d: %(message)s",
@@ -225,7 +227,7 @@ class Backup:
         return self.__new_index__.is_folder(f)
 
     def restore_folder(self, folder):
-        logger.debug('restoring folder %s' % folder)
+        logger.debug('restoring folder %s' % folder)  # TODO
 
         # get destination dir
         # index destination dir
@@ -255,17 +257,36 @@ class Backup:
             dest = os.path.dirname(fullname)
         logger.debug('got dest dir %s' % dest)
 
-        # hash file in destination dir and
         # restore if file changed or not found in dest
-        if get_file_hash(fullname) == self.__new_index__.hash(fullname):
-            logger.info('file unchanged, cancelling restore')
-            return
+        if os.path.exists(fullname):
+            if get_file_hash(fullname) == self.__new_index__.hash(fullname):
+                logger.info('file unchanged, cancelling restore')
+                return
+            else:
+                logger.debug('file changed')
+        else:
+            logger.debug('file not found')
 
-        logger.debug('file changed, restoring')
-        # TODO restore
+        with tarfile.open(self.get_tarpath(), 'r:*') as tar:
+            member_name = self.get_member_name(fullname)
+            logger.info(
+                'restoring %s from %s' % (member_name, self.get_tarpath())
+            )
+            tar.extractall(ROOT_PATH,[tar.getmember(member_name)])
+
+    def get_member_name(self, name):
+        """convert full (source) path of file to path within tar"""
+        logger.debug('getting member name for %s' % name)
+        member = name.replace(ROOT_PATH, '')
+        if os.getenv("OS") == "Windows_NT":
+            member = member.replace('\\', '/')
+
+        logger.debug('returning %s' % member)
+        return member
 
 
 def get_file_hash(fullname):
+    """return a string representing the md5 hash of the given file"""
     try:
         logger.debug('hashing %s' % fullname)
         with open(fullname) as f:
@@ -515,22 +536,34 @@ def perform_backup(directories):
 
 
 def search_backup(path, filename, files, folders, exact_match=True):
+    """look through all the backups in path for filename,
+    returning any files or folders that match.
+    set exact_match to false to allow partial matches."""
     logger.debug('searching %s (exact=%s)' % (path, exact_match))
     last_hash = None
+    last_backup = None
+    # we don't know if user has entered a file or a folder, so search both
     for zip_path in all_backups(path):
-        backup = read_backup(os.path.join(path, zip_path))
-        this_hash = backup.contains_file(filename, exact_match)
-        if this_hash:
+        this_backup = read_backup(os.path.join(path, zip_path))
+        # note: it's the last (oldest) backup that contains each unique hash
+        this_hash = this_backup.contains_file(filename, exact_match)
+        if this_hash or last_hash:
             if this_hash != last_hash:
-                logger.debug('hash %s#' % this_hash)
-                files.append(backup)
+                # hash has changed, so if there is a previous hash,
+                # add the previous backup
+                logger.debug('hash %s' % this_hash)
+                if last_hash:
+                    logger.debug('hash changed, adding last backup')
+                    files.append(last_backup)
                 last_hash = this_hash
-        else:
-            logger.debug('file not found, trying folders')
-            # TODO partial match of folder name
-            if backup.contains_folder(filename):
-                logger.debug('appending full zip path')
-                folders.append(backup)
+
+        # also see if filename matches any of the folders in this backup
+        # TODO partial match of folder name
+        if this_backup.contains_folder(filename):
+            logger.debug('folder found, adding backup to list')
+            folders.append(this_backup)
+
+        last_backup = this_backup
 
 
 def find_file_in_backup(dirlist, filename):
@@ -614,20 +647,11 @@ def find_file_in_backup(dirlist, filename):
 
     logger.warning('%s not found' % filename)
 
-# fork if no args(all) or specific files/folders
-# restore all - for each src,dest from config, get zips in
-# reverse order and unzip from dest to src
-# specific - try and find file/folder by matching path to
-# src paths in config then search zips in that dest folder
-# if not found, search again in all zips
-# file - list all versions then ask which to restore
-# folder - restore all instances of that folder in reverse date order
-
 
 def perform_restore(dirlist, files):
     if not files:
         # doing restore all
-        logger.warning('restore all not implemented')
+        logger.warning('restore all not implemented')  # TODO
         # for file in dirlist:
         #     logger.info('  %s' % file[0])
 
