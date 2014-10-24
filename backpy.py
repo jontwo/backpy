@@ -43,6 +43,7 @@ from hashlib import md5
 from pdb import set_trace  # noqa
 
 ROOT_PATH = os.path.abspath(os.sep)
+CONFIG_FILE = os.path.expanduser('~/.backpy')
 
 
 class SpecialFormatter(logging.Formatter):
@@ -183,6 +184,9 @@ class Backup:
                 tar.add(f)
                 # TODO do not keep index if nothing added?
 
+            # backup current config file
+            tar.add(CONFIG_FILE, '.backpy')
+
     # TODO platform independent paths
     def full_recovery(self):
         tar = tarfile.open(os.path.join(
@@ -272,7 +276,7 @@ class Backup:
             logger.info(
                 'restoring %s from %s' % (member_name, self.get_tarpath())
             )
-            tar.extractall(ROOT_PATH,[tar.getmember(member_name)])
+            tar.extractall(ROOT_PATH, [tar.getmember(member_name)])
 
     def get_member_name(self, name):
         """convert full (source) path of file to path within tar"""
@@ -731,23 +735,23 @@ if __name__ == '__main__':
     fh.setFormatter(ff)
     logger.addHandler(fh)
 
-    config_file = os.path.expanduser('~/.backpy')
-    init(config_file)
-    backup_dirs = read_directory_list(config_file)
+    init(CONFIG_FILE)
+    backup_dirs = read_directory_list(CONFIG_FILE)
     if args['list']:
         show_directory_list(backup_dirs)
     elif args['add_path']:
         add_directory(
-            config_file, args['add_path'][0], args['add_path'][1]
+            CONFIG_FILE, args['add_path'][0], args['add_path'][1]
         )
     elif args['delete_path']:
         delete_directory(
-            config_file, args['delete_path'][0], args['delete_path'][1]
+            CONFIG_FILE, args['delete_path'][0], args['delete_path'][1]
         )
     elif args['skip']:
-        add_skip(config_file, args['skip'])
+        # TODO skip all subfolders
+        add_skip(CONFIG_FILE, args['skip'])
     elif args['contains']:
-        add_skip(config_file, args['contains'], True)
+        add_skip(CONFIG_FILE, args['contains'], True)
     elif args['backup']:
         for directory in backup_dirs:
             perform_backup(directory)
