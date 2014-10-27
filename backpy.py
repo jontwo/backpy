@@ -402,12 +402,20 @@ def get_config_index(dirlist, src, dest):
     Returns None if not found."""
     logger.debug('get index of %s, %s' % (src, dest))
     for i in range(len(dirlist)):
-        if (
-            len(dirlist[i]) >= 2 and
-            string_equals(dirlist[i][0], src) and
-            string_equals(dirlist[i][1], dest)
-        ):
-            return i
+        if len(dirlist[i]) >= 2:
+            # normalise trailing slashes
+            src = os.path.normpath(src)
+            dest = os.path.normpath(dest)
+            index_src = os.path.normpath(dirlist[i][0])
+            index_dest = os.path.normpath(dirlist[i][1])
+            logger.debug('entry %d: %s, %s.' % (
+                i, index_src, index_dest
+            ))
+            if (
+                string_equals(index_src, src) and
+                string_equals(index_dest, dest)
+            ):
+                return i
     return None
 
 
@@ -488,6 +496,7 @@ def delete_directory(path, src, dest):
     write_directory_list(path, dirs)
 
 
+# TODO better solution for skip all subfolders
 def add_skip(path, skips, add_regex=None):
     if len(skips) < 3:
         print 'skip syntax: <src> <dest> <skip dir> {... <skip dir>}'
