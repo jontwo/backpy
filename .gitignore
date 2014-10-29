@@ -1,2 +1,5 @@
 .*index
 .idea
+build/*
+dist/*
+backpy.egg-info/*

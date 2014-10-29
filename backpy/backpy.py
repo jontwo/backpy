@@ -44,6 +44,7 @@ from pdb import set_trace  # noqa
 
 ROOT_PATH = os.path.abspath(os.sep)
 CONFIG_FILE = os.path.expanduser('~/.backpy')
+logger = logging.getLogger('backpy')
 
 
 class SpecialFormatter(logging.Formatter):
@@ -231,7 +232,8 @@ class Backup:
         return self.__new_index__.is_folder(f)
 
     def restore_folder(self, folder):
-        logger.debug('restoring folder %s' % folder)  # TODO
+        # logger.debug('restoring folder %s' % folder)  # TODO
+        pass
 
         # get destination dir
         # index destination dir
@@ -242,7 +244,9 @@ class Backup:
         #     if string_equals(dirs[1], os.path.dirname(zip_path)):
         #         dest = dirs[0]
         # if dest:
-        #     logger.info('restoring %s from %s to %s' % (folder, zip_path, dest))
+        #     logger.info(
+        #         'restoring %s from %s to %s' % (folder, zip_path, dest)
+        #     )
 
     def restore_file(self, filename):
         logger.debug(
@@ -278,6 +282,7 @@ class Backup:
             )
             tar.extractall(ROOT_PATH, [tar.getmember(member_name)])
 
+    # noinspection PyMethodMayBeStatic
     def get_member_name(self, name):
         """convert full (source) path of file to path within tar"""
         logger.debug('getting member name for %s' % name)
@@ -309,7 +314,7 @@ def delete_temp_files(path):
         # single file - delete it and return
         try:
             os.unlink(path)
-        except WindowsError:
+        except OSError:
             logger.warning('could not delete %s' % path)
         return
 
@@ -319,7 +324,7 @@ def delete_temp_files(path):
             delete_temp_files(os.path.join(path, f))
         try:
             os.rmdir(path)
-        except WindowsError:
+        except OSError:
             logger.warning('could not delete %s' % path)
 
 
@@ -385,8 +390,8 @@ def list_contains(s1, l2):
 
 
 def get_filename_index(s1, l2):
-    """Get index for filename in list contains string, ignoring case for
-    Windows and ignoring path. Returns None if not found"""
+    """Get index for filename in list, ignoring case for Windows and
+    ignoring path. Returns None if not found"""
     if os.getenv("OS") == "Windows_NT":
         s1 = s1.lower()
         l2 = map(str.lower, l2)
@@ -674,6 +679,25 @@ def perform_restore(dirlist, files):
         find_file_in_backup(dirlist, os.path.normpath(f))
 
 
+def set_up_logging(level=1):
+    logger.setLevel(logging.DEBUG)
+    sh = logging.StreamHandler(sys.stderr)
+    sh.setFormatter(SpecialFormatter())
+    sh.setLevel(logging.INFO)
+    if 2 == level:
+        sh.setLevel(logging.DEBUG)
+    # kill console output (i.e. during unit tests)
+    if 0 != level:
+        logger.addHandler(sh)
+    fh = logging.handlers.RotatingFileHandler(
+        os.path.expanduser('~/backpy.log'), maxBytes=1000000, backupCount=3
+    )
+    fh.setLevel(logging.DEBUG)
+    ff = logging.Formatter('%(asctime)s: %(levelname)s: %(name)s: %(message)s')
+    fh.setFormatter(ff)
+    logger.addHandler(fh)
+
+
 def init(file_config):
     logger.debug('opening config file')
     try:
@@ -727,23 +751,7 @@ if __name__ == '__main__':
     start = datetime.now()
     args = parse_args()
 
-    # set up logging
-    logger = logging.getLogger('backpy')
-    logger.setLevel(logging.DEBUG)
-    sh = logging.StreamHandler(sys.stderr)
-    sh.setFormatter(SpecialFormatter())
-    sh.setLevel(logging.INFO)
-    if args['verbose']:
-        sh.setLevel(logging.DEBUG)
-    logger.addHandler(sh)
-    fh = logging.handlers.RotatingFileHandler(
-        os.path.expanduser('~/backpy.log'), maxBytes=1000000, backupCount=3
-    )
-    fh.setLevel(logging.DEBUG)
-    ff = logging.Formatter('%(asctime)s: %(levelname)s: %(name)s: %(message)s')
-    fh.setFormatter(ff)
-    logger.addHandler(fh)
-
+    set_up_logging(2 if args['verbose'] else 1)
     init(CONFIG_FILE)
     backup_dirs = read_directory_list(CONFIG_FILE)
     if args['list']:
