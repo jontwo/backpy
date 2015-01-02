@@ -494,8 +494,22 @@ def delete_directory(path, src, dest):
     dirs = read_directory_list(path)
     index = get_config_index(dirs, src, dest)
     if index is None:
-        logger.error('entry not found')
-        return
+        if not os.path.isabs(src):
+            logger.warning(
+                'relative path used for source dir, adding current dir'
+            )
+            src = os.path.abspath(src)
+        if not os.path.isabs(dest):
+            logger.warning(
+                'relative path used for destination dir, adding current dir'
+            )
+            dest = os.path.abspath(dest)
+
+        # check config file again now paths are absolute
+        index = get_config_index(dirs, src, dest)
+        if index is None:
+            logger.error('entry not found')
+            return
 
     del dirs[index]
     write_directory_list(path, dirs)
