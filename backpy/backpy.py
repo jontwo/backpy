@@ -497,8 +497,22 @@ def delete_directory(path, src, dest):
     dirs = read_directory_list(path)
     index = get_config_index(dirs, src, dest)
     if index is None:
-        logger.error('entry not found')
-        return
+        if not os.path.isabs(src):
+            logger.warning(
+                'relative path used for source dir, adding current dir'
+            )
+            src = os.path.abspath(src)
+        if not os.path.isabs(dest):
+            logger.warning(
+                'relative path used for destination dir, adding current dir'
+            )
+            dest = os.path.abspath(dest)
+
+        # check config file again now paths are absolute
+        index = get_config_index(dirs, src, dest)
+        if index is None:
+            logger.error('entry not found')
+            return
 
     del dirs[index]
     write_directory_list(path, dirs)
@@ -722,7 +736,7 @@ def parse_args():
                        required=False,
                        help='list the all the directories currently in the\
                        config file')
-    group.add_argument('-a', '--add', metavar='path', nargs=2,
+    group.add_argument('-a', '--add', metavar='path', nargs='+',
                        dest='add_path', required=False,
                        help='adds the specified source directory to the\
                        backup index. the backups will be stored in the\
@@ -761,9 +775,33 @@ if __name__ == '__main__':
     if args['list']:
         show_directory_list(backup_dirs)
     elif args['add_path']:
-        add_directory(
-            CONFIG_FILE, args['add_path'][0], args['add_path'][1]
-        )
+        # TODO make into function for use elsewhere
+        new_args = []
+        if len(args['add_path']) > 2:
+            logger.info('More than two args, trying to fix spaces')
+            prev_arg = ''
+            for arg in args['add_path']:
+                if prev_arg != '':
+                    prev_arg += ' '
+                prev_arg += arg
+                if os.path.exists(prev_arg):
+                    new_args.append(prev_arg)
+                    prev_arg = ''
+
+            if prev_arg and os.path.exists(os.path.dirname(prev_arg)):
+                new_args.append(prev_arg)
+                logger.debug(
+                    "Couldn't find path, but parent dir is found, must be dest"
+                )
+
+        elif len(args['add_path']) == 2:
+            new_args = args['add_path']
+        if len(new_args) > 1:
+            add_directory(
+                CONFIG_FILE, new_args[0], new_args[1]
+            )
+        else:
+            logger.error('Two valid paths not given')
     elif args['delete_path']:
         delete_directory(
             CONFIG_FILE, args['delete_path'][0], args['delete_path'][1]
