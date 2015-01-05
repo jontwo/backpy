@@ -70,11 +70,14 @@ class FileIndex:
             logger.warning('root dir %s does not exist or is excluded' % path)
 
     def is_valid(self, f):
+        flags = 0
+        if os.getenv("OS") == "Windows_NT":
+            flags = re.IGNORECASE
         if not os.path.exists(f):
             return False
         if self.__exclusion_rules__:
             for regex in self.__exclusion_rules__:
-                if re.match(regex, f) is not None:
+                if re.match(regex, f, flags=flags) is not None:
                     return False
         return True
 
@@ -297,7 +300,6 @@ class Backup:
 def get_file_hash(fullname):
     """return a string representing the md5 hash of the given file"""
     try:
-        logger.debug('hashing %s' % fullname)
         with open(fullname) as f:
             md5hash = md5(f.read())
             return ''.join(
@@ -435,6 +437,7 @@ def read_directory_list(path):
 
 def write_directory_list(path, dirlist):
     logger.debug('writing directories to config')
+    # TODO write 3x file separators for windows
     with open(path, "w+") as l:
         for line in dirlist:
             l.write(','.join(line) + '\n')
@@ -547,6 +550,7 @@ def perform_backup(directories):
     logger.info('backup of directory %s to %s' % (src, dest))
     if skip is not None:
         logger.info('  skipping directories that match %s' % ' or '.join(skip))
+    # TODO check dest exists before indexing
     f = FileIndex(src, skip)
     f.gen_index()
     backup = Backup(dest, f, latest_backup(dest))
