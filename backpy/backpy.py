@@ -35,6 +35,7 @@ import logging
 import logging.handlers
 import os
 import re
+import subprocess
 import sys
 import tarfile
 from argparse import ArgumentParser
@@ -45,6 +46,10 @@ from pdb import set_trace  # noqa
 ROOT_PATH = os.path.abspath(os.sep)
 CONFIG_FILE = os.path.expanduser('~/.backpy')
 logger = logging.getLogger('backpy')
+
+# android backup mode
+global adb
+adb = False
 
 
 class SpecialFormatter(logging.Formatter):
@@ -73,7 +78,7 @@ class FileIndex:
         flags = 0
         if os.getenv("OS") == "Windows_NT":
             flags = re.IGNORECASE
-        if not os.path.exists(f):
+        if not adb and not os.path.exists(f):
             return False
         if self.__exclusion_rules__:
             for regex in self.__exclusion_rules__:
@@ -82,6 +87,11 @@ class FileIndex:
         return True
 
     def gen_index(self):
+        if adb:
+            logger.debug('generating index of android device')
+            self.adb_read_folder(self.__path__)
+            return
+
         logger.debug('generating index')
         for dirname, dirnames, filenames in os.walk(self.__path__):
             if not self.is_valid(dirname):
@@ -153,6 +163,47 @@ class FileIndex:
                 filelist.append(f)
         return filelist
 
+    def adb_read_folder(self, path):
+        """use adb to list all files and folders in path,
+        hashing with full file path, modified date and time, and size"""
+        logger.debug('reading adb folder %s' % path)
+        # check files in this folder
+        for out in subprocess.check_output(
+            ['adb', 'shell', 'ls', '-a', '-l', path]
+        ).split('\n'):
+            file_info = out.strip()
+            if not len(file_info):
+                continue
+            line = file_info.split()
+            try:
+                f_permissions = line[0]
+                # f_owner = line[1]
+                # f_group = line[2]
+                if f_permissions.startswith('-'):
+                    f_size = line[3]
+                    f_date = line[4]
+                    f_time = line[5]
+                    f_name = ' '.join(line[6:])
+                else:
+                    f_date = line[3]
+                    f_time = line[4]
+                    f_name = ' '.join(line[5:])
+                fullname = '%s/%s' % (path, f_name)
+
+                if f_permissions.startswith('d'):
+                    # folder - add to list and search subfolders
+                    if self.is_valid(fullname):
+                        self.__dirs__.append(fullname)
+                        self.adb_read_folder(fullname)
+                else:
+                    # file - hash and add to list
+                    digest = get_file_hash(fullname, f_date + f_time, f_size)
+                    if digest:
+                        self.__files__[fullname] = digest
+
+            except IndexError:
+                logger.warning('could not extract info from %s' % file_info)
+
 
 class Backup:
     def __init__(
@@ -185,7 +236,29 @@ class Backup:
             # write files
             for f in self.__new_index__.get_diff(self.__old_index__):
                 logger.info('adding %s...' % f)
-                tar.add(f)
+                if adb:
+                    # pull files off phone into temp folder before backing up
+                    temp_path = os.path.join(
+                        '.', '.%s_adb' % self.__timestamp__
+                    )
+                    # replace file root with temp path
+                    temp_name = os.path.abspath(os.path.join(
+                        temp_path,
+                        f.replace(self.__new_index__.__path__ + '/', '')
+                    ))
+                    try:
+                        subprocess.check_call(
+                            ['adb', 'pull', f, temp_name]
+                        )
+                        # add to tar using original name
+                        tar.add(temp_name, f)
+                    except subprocess.CalledProcessError:
+                        logger.warning('could not pull %s from phone' % f)
+
+                    # delete temp files
+                    delete_temp_files(temp_path)
+                else:
+                    tar.add(f)
                 # TODO do not keep index if nothing added?
 
             # backup current config file
@@ -297,16 +370,25 @@ class Backup:
         return member
 
 
-def get_file_hash(fullname):
-    """return a string representing the md5 hash of the given file"""
-    try:
-        with open(fullname) as f:
-            md5hash = md5(f.read())
-            return ''.join(
-                ['%x' % ord(h) for h in md5hash.digest()]
-            )
-    except IOError:
-        logger.warning('could not process file: %s' % fullname)
+def get_file_hash(fullname, size=None, ctime=None):
+    """return a string representing the md5 hash of the given file.
+    use size and/or ctime args if file is on a phone and can't be read."""
+    if size or ctime:
+        md5hash = md5(fullname)
+        if size:
+            md5hash.update(size)
+        if ctime:
+            md5hash.update(ctime)
+    else:
+        try:
+            with open(fullname) as f:
+                md5hash = md5(f.read())
+        except IOError:
+            logger.warning('could not process file: %s' % fullname)
+
+    return ''.join(
+        ['%x' % ord(h) for h in md5hash.digest()]
+    ) if md5hash else None
 
 
 def delete_temp_files(path):
@@ -763,6 +845,10 @@ def parse_args():
                        files to their original folders. can give full file\
                        path or just the file name. leave blank to restore\
                        all.')
+    group.add_argument('-n', '--adb', '--android', nargs=1,
+                       dest='adb', metavar='path', required=False,
+                       help='backs up the connected android device to the\
+                       given folder')
     return vars(parser.parse_args())
 
 if __name__ == '__main__':
@@ -813,12 +899,18 @@ if __name__ == '__main__':
         add_skip(CONFIG_FILE, args['contains'], True)
     elif args['backup']:
         for directory in backup_dirs:
-            perform_backup(directory)
             print ''
-        logger.info('done. elapsed time = %s' % (datetime.now() - start))
+            perform_backup(directory)
+    elif args['adb']:
+        adb = True
+        # TODO optional source dir arg?
+        perform_backup(['/sdcard/', args['adb'][0]])
     elif args['restore'] is not None:
         perform_restore(backup_dirs, args['restore'])
-        logger.info('done. elapsed time = %s' % (datetime.now() - start))
     else:
         print "please specify a program option.\n" + \
             "invoke with --help for futher information."
+
+    if args['backup'] or args['restore'] or args['adb']:
+        print ''
+        logger.info('done. elapsed time = %s' % (datetime.now() - start))
