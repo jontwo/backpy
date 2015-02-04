@@ -22,36 +22,53 @@ class ConfigTest(unittest.TestCase):
                 os.unlink(cls.config_backup)
             os.rename(backpy.CONFIG_FILE, cls.config_backup)
             backpy.set_up_logging(0)
-            backpy.init(backpy.CONFIG_FILE)
             cls.do_restore = True
 
         # set root backup dir
         if os.getenv("OS") == "Windows_NT":
-            cls.root_dir = os.path.join(
+            cls.dest_root = os.path.join(
                 backpy.ROOT_PATH, 'temp', 'backpy'
             )
         else:
-            cls.root_dir = os.path.join(
+            cls.dest_root = os.path.join(
                 backpy.ROOT_PATH, 'tmp', 'backpy'
             )
-        if not os.path.exists(cls.root_dir):
-            os.mkdir(cls.root_dir)
+        if not os.path.exists(cls.dest_root):
+            os.mkdir(cls.dest_root)
 
     @classmethod
     def tearDownClass(cls):
         # keep config for reference
-        copy2(backpy.CONFIG_FILE, cls.root_dir)
+        copy2(backpy.CONFIG_FILE, cls.dest_root)
         # restore config
         if cls.do_restore:
             os.unlink(backpy.CONFIG_FILE)
             os.rename(cls.config_backup, backpy.CONFIG_FILE)
 
-    def textInFile(self, filename, text):
+    def setUp(self):
+        # start test with blank config
+        if os.path.exists(backpy.CONFIG_FILE):
+            os.unlink(backpy.CONFIG_FILE)
+        backpy.init(backpy.CONFIG_FILE)
+
+    def add_one_folder(self):
+        src = os.path.join(self.root_dir, 'resources', 'source_files', 'one')
+        dest = os.path.join(self.dest_root, 'one')
+        backpy.add_directory(backpy.CONFIG_FILE, src, dest)
+
+    def add_six_seven_folder(self):
+        src = os.path.join('resources', 'source_files', 'six seven')
+        dest = os.path.join(self.dest_root, 'six seven')
+        backpy.add_directory(
+            backpy.CONFIG_FILE, os.path.join(self.root_dir, src), dest
+        )
+
+    def text_in_file(self, filename, text):
         with open(filename) as l:
             config_contents = l.read()
             return text in config_contents
 
-    def getFileSize(self, filename):
+    def get_file_size(self, filename):
         size = 0
         if os.path.exists(filename):
             size = os.path.getsize(filename)
@@ -59,76 +76,80 @@ class ConfigTest(unittest.TestCase):
 
     # try to add a folder that does not exist
     # and check nothing is added to config file
-    def test1AddFolderSourceNotFound(self):
-        size_before = self.getFileSize(backpy.CONFIG_FILE)
+    def testAddFolderSourceNotFound(self):
+        size_before = self.get_file_size(backpy.CONFIG_FILE)
         src = 'test'
-        dest = os.path.join(self.root_dir)
+        dest = self.dest_root
         backpy.add_directory(
             backpy.CONFIG_FILE, src, dest
         )
 
-        size_after = self.getFileSize(backpy.CONFIG_FILE)
+        size_after = self.get_file_size(backpy.CONFIG_FILE)
         self.assertEqual(size_before, size_after)
 
     # try to add a folder that does exist
     # check source path is added to config file
-    def test2AddFolderSourceFound(self):
-        size_before = self.getFileSize(backpy.CONFIG_FILE)
+    def testAddFolderSourceFound(self):
+        size_before = self.get_file_size(backpy.CONFIG_FILE)
         # use rel path for source so can search config file for text
         src = os.path.join('resources', 'source_files', 'one')
-        dest = os.path.join(self.root_dir, 'one')
+        dest = os.path.join(self.dest_root, 'one')
         backpy.add_directory(
-            backpy.CONFIG_FILE, os.path.join('.', src), dest
+            backpy.CONFIG_FILE, os.path.join(self.root_dir, src), dest
         )
 
-        size_after = self.getFileSize(backpy.CONFIG_FILE)
+        size_after = self.get_file_size(backpy.CONFIG_FILE)
         self.assertGreater(size_after, size_before)
-        self.assertTrue(self.textInFile(backpy.CONFIG_FILE, src))
+        self.assertTrue(self.text_in_file(backpy.CONFIG_FILE, src))
 
     # try to add a folder that contains spaces in the name
-    def test3AddFolderWithSpaces(self):
-        size_before = self.getFileSize(backpy.CONFIG_FILE)
+    def testAddFolderWithSpaces(self):
+        size_before = self.get_file_size(backpy.CONFIG_FILE)
         # use rel path for source so can search config file for text
         src = os.path.join('resources', 'source_files', 'six seven')
-        dest = os.path.join(self.root_dir, 'six seven')
+        dest = os.path.join(self.dest_root, 'six seven')
         backpy.add_directory(
-            backpy.CONFIG_FILE, os.path.join('.', src), dest
+            backpy.CONFIG_FILE, os.path.join(self.root_dir, src), dest
         )
 
-        size_after = self.getFileSize(backpy.CONFIG_FILE)
+        size_after = self.get_file_size(backpy.CONFIG_FILE)
         self.assertGreater(size_after, size_before)
-        self.assertTrue(self.textInFile(backpy.CONFIG_FILE, src))
+        self.assertTrue(self.text_in_file(backpy.CONFIG_FILE, src))
 
     # try to remove a folder
-    def test4RemoveFolder(self):
-        size_before = self.getFileSize(backpy.CONFIG_FILE)
+    def testRemoveFolder(self):
+        # add some entries to config
+        self.add_one_folder()
+        self.add_six_seven_folder()
+
+        size_before = self.get_file_size(backpy.CONFIG_FILE)
         # use rel path for source so can search config file for text
         src = os.path.join('resources', 'source_files', 'six seven')
-        dest = os.path.join(self.root_dir, 'six seven')
+        dest = os.path.join(self.dest_root, 'six seven')
         backpy.delete_directory(
-            backpy.CONFIG_FILE, os.path.join('.', src), dest
+            backpy.CONFIG_FILE, os.path.join(self.root_dir, src), dest
         )
 
-        size_after = self.getFileSize(backpy.CONFIG_FILE)
+        size_after = self.get_file_size(backpy.CONFIG_FILE)
         self.assertLess(size_after, size_before)
-        self.assertFalse(self.textInFile(backpy.CONFIG_FILE, src))
+        self.assertFalse(self.text_in_file(backpy.CONFIG_FILE, src))
 
     # try to add a folder that contains spaces in the name,
     # calling backpy from command line
-    def test5AddFolderViaCommandLine(self):
-        size_before = self.getFileSize(backpy.CONFIG_FILE)
+    def testAddFolderViaCommandLine(self):
+        size_before = self.get_file_size(backpy.CONFIG_FILE)
         # use rel path for source so can search config file for text
         src = os.path.join('resources', 'source_files', 'six')
-        dest = os.path.join(self.root_dir, 'six')
-        backpy_py = os.path.join('.', 'backpy', 'backpy.py')
+        dest = os.path.join(self.dest_root, 'six')
+        backpy_py = os.path.join(self.root_dir, 'backpy', 'backpy.py')
         # add part of name here to ensure spaces are passed in
         subprocess.check_output(
             ['python', backpy_py, '-a', src, 'seven', dest, 'seven']
         )
 
-        size_after = self.getFileSize(backpy.CONFIG_FILE)
+        size_after = self.get_file_size(backpy.CONFIG_FILE)
         self.assertGreater(size_after, size_before)
-        self.assertTrue(self.textInFile(backpy.CONFIG_FILE, src))
+        self.assertTrue(self.text_in_file(backpy.CONFIG_FILE, src))
 
 if __name__ == '__main__':
     suite = unittest.TestLoader().loadTestsFromTestCase(ConfigTest)
