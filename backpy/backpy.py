@@ -28,7 +28,7 @@ POSSIBILITY OF SUCH DAMAGE.
 """
 
 __author__ = 'Steffen Schneider'
-__version__ = '1.0'
+__version__ = '1.1'
 __copyright__ = 'Simplified BSD license'
 
 import logging
@@ -50,6 +50,7 @@ logger = logging.getLogger('backpy')
 # android backup mode
 global adb
 adb = False
+ANDROID_SKIPS = os.path.expanduser('~/.androidSkipFolders')
 
 
 class SpecialFormatter(logging.Formatter):
@@ -78,7 +79,14 @@ class FileIndex:
         flags = 0
         if os.getenv("OS") == "Windows_NT":
             flags = re.IGNORECASE
-        if not adb and not os.path.exists(f):
+        if adb:
+            if os.path.exists(ANDROID_SKIPS):
+                with open(ANDROID_SKIPS) as skip_list:
+                    for entry in skip_list:
+                        if f.startswith(entry.strip()):
+                            logger.debug('SKIPPING %s' % f)
+                            return False
+        elif not os.path.exists(f):
             return False
         if self.__exclusion_rules__:
             for regex in self.__exclusion_rules__:
@@ -179,7 +187,7 @@ class FileIndex:
                 f_permissions = line[0]
                 # f_owner = line[1]
                 # f_group = line[2]
-                if f_permissions.startswith('-'):
+                if not f_permissions.startswith('d'):
                     f_size = line[3]
                     f_date = line[4]
                     f_time = line[5]
@@ -188,7 +196,11 @@ class FileIndex:
                     f_date = line[3]
                     f_time = line[4]
                     f_name = ' '.join(line[5:])
-                fullname = '%s/%s' % (path, f_name)
+                # check for slash before adding sub path
+                if path[-1] == '/':
+                    fullname = '%s%s' % (path, f_name)
+                else:
+                    fullname = '%s/%s' % (path, f_name)
 
                 if f_permissions.startswith('d'):
                     # folder - add to list and search subfolders
@@ -646,7 +658,12 @@ def perform_backup(directories):
     logger.info('backup of directory %s to %s' % (src, dest))
     if skip is not None:
         logger.info('  skipping directories that match %s' % ' or '.join(skip))
-    # TODO check dest exists before indexing
+    # check dest exists before indexing
+    if not os.path.exists(dest):
+        logger.warning(
+            'destination path %s not found, creating directory' % dest
+        )
+        os.mkdir(dest)
     f = FileIndex(src, skip)
     f.gen_index()
     backup = Backup(dest, f, latest_backup(dest))
