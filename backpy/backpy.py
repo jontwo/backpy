@@ -580,7 +580,12 @@ def add_directory(path, src, dest):
         logger.warning(
             'destination path %s not found, creating directory' % dest
         )
-        os.mkdir(dest)
+        if os.path.pardir in dest:
+            os.mkdir(dest)
+        else:
+            # best to use recursive make dir, but
+            # only works if dest does not contain pardir (..)
+            os.makedirs(dest)
 
     dirs.append([src, dest])
     write_directory_list(path, dirs)
