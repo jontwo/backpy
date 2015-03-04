@@ -240,6 +240,7 @@ class Backup:
             return
 
         logger.debug('writing files to backup')
+        count = 0
         with tarfile.open(self.get_tarpath(), 'w:gz') as tar:
             # write index
             path = os.path.join('.', '.%s_index' % self.__timestamp__)
@@ -256,27 +257,36 @@ class Backup:
                         '.', '.%s_adb' % self.__timestamp__
                     )
                     # replace file root with temp path
-                    temp_name = os.path.abspath(os.path.join(
-                        temp_path,
-                        f.replace(self.__new_index__.__path__ + '/', '')
-                    ))
+                    temp_name = (
+                        os.path.abspath(temp_path) + f.replace('/', os.sep)
+                    )
                     try:
                         subprocess.check_call(
                             ['adb', 'pull', f, temp_name]
                         )
                         # add to tar using original name
                         tar.add(temp_name, f)
+                        count += 1
                     except subprocess.CalledProcessError:
                         logger.warning('could not pull %s from phone' % f)
+                    finally:
+                        delete_temp_files(temp_name)
 
                     # delete temp files
                     delete_temp_files(temp_path)
                 else:
                     tar.add(f)
-                # TODO do not keep index if nothing added?
+                    count += 1
 
             # backup current config file
             tar.add(CONFIG_FILE, '.backpy')
+
+        # do not keep index if nothing added
+        if count:
+            logger.info('%s files backed up' % count)
+        else:
+            delete_temp_files(self.get_tarpath())
+            logger.warning('no files changed - nothing to back up')
 
     # TODO platform independent paths
     def full_recovery(self):
