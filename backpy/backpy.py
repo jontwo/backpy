@@ -202,16 +202,18 @@ class FileIndex:
                 else:
                     fullname = '%s/%s' % (path, f_name)
 
-                if f_permissions.startswith('d'):
-                    # folder - add to list and search subfolders
-                    if self.is_valid(fullname):
+                if self.is_valid(fullname):
+                    if f_permissions.startswith('d'):
+                        # folder - add to list and search subfolders
                         self.__dirs__.append(fullname)
                         self.adb_read_folder(fullname)
-                else:
-                    # file - hash and add to list
-                    digest = get_file_hash(fullname, f_date + f_time, f_size)
-                    if digest:
-                        self.__files__[fullname] = digest
+                    else:
+                        # file - hash and add to list
+                        digest = get_file_hash(
+                            fullname, f_date + f_time, f_size
+                        )
+                        if digest:
+                            self.__files__[fullname] = digest
 
             except IndexError:
                 logger.warning('could not extract info from %s' % file_info)
