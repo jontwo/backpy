@@ -960,8 +960,10 @@ if __name__ == '__main__':
             perform_backup(directory)
     elif args['adb']:
         adb = True
-        # TODO optional source dir arg?
-        perform_backup(['/sdcard/', args['adb'][0]])
+        source = '/sdcard/'
+        if len(args['adb']) > 1:
+            source = args['adb'][1]
+        perform_backup([source, args['adb'][0]])
     elif args['restore'] is not None:
         perform_restore(backup_dirs, args['restore'])
     else:
