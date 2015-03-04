@@ -592,7 +592,11 @@ def add_directory(path, src, dest):
         logger.warning(
             'destination path %s not found, creating directory' % dest
         )
-        os.mkdir(dest)
+        try:
+            os.mkdir(dest)
+        except OSError:
+            logger.error('could not create directory')
+            return
 
     dirs.append([src, dest])
     write_directory_list(path, dirs)
@@ -675,7 +679,11 @@ def perform_backup(directories):
         logger.warning(
             'destination path %s not found, creating directory' % dest
         )
-        os.mkdir(dest)
+        try:
+            os.mkdir(dest)
+        except OSError:
+            logger.error('could not create directory')
+            return
     f = FileIndex(src, skip)
     f.gen_index()
     backup = Backup(dest, f, latest_backup(dest))
