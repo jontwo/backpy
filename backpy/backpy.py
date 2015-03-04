@@ -846,6 +846,40 @@ def init(file_config):
         f.close()
 
 
+def handle_arg_spaces(old_args):
+    """Some shells mess up the quoted input arguments, if so, reassemble them
+    """
+    num_quotes = len(str(old_args)) - len(str(old_args).replace('\"', ''))
+    if num_quotes % 2 != 0:
+        logger.error('mismatched quotes in input argument: %s' % old_args)
+    elif num_quotes != 0:
+        in_quote = False
+        new_args = []
+        quoted_arg = ''
+        for arg in old_args:
+            if in_quote:
+                if arg[-1] == '\"':
+                    # has closing quote, finish rebuilding
+                    quoted_arg = '%s %s' % (quoted_arg, arg[:-1])
+                    new_args.append(quoted_arg)
+                    in_quote = False
+                    quoted_arg = ''
+                else:
+                    # keep rebuilding
+                    quoted_arg = '%s %s' % (quoted_arg, arg)
+            else:
+                if arg[0] == '\"':
+                    # has opening quote, start rebuilding
+                    quoted_arg = arg[1:]
+                    in_quote = True
+                else:
+                    # just add without changing
+                    new_args.append(arg)
+        return new_args
+    # no quotes, just return the original list
+    return old_args
+
+
 def parse_args():
     parser = ArgumentParser(description='Command line backup utility')
     parser.add_argument('-v', '--verbose', action='store_true', dest='verbose',
@@ -873,7 +907,7 @@ def parse_args():
                        nargs='+', required=False,
                        help='skips all directories that match the given\
                        regular expression')
-    group.add_argument('-d', '--delete', metavar='path', nargs=2,
+    group.add_argument('-d', '--delete', metavar='path', nargs='+',
                        dest='delete_path', required=False,
                        help='remove the specified source and destination\
                        directories from the backup.lst file')
@@ -882,10 +916,12 @@ def parse_args():
                        files to their original folders. can give full file\
                        path or just the file name. leave blank to restore\
                        all.')
-    group.add_argument('-n', '--adb', '--android', nargs=1,
+    group.add_argument('-n', '--adb', '--android', nargs='+',
                        dest='adb', metavar='path', required=False,
                        help='backs up the connected android device to the\
-                       given folder')
+                       given folder. defaults to copying from /sdcard/, but\
+                       can optionally specify source folder as a second\
+                       argument.')
     return vars(parser.parse_args())
 
 if __name__ == '__main__':
@@ -898,27 +934,7 @@ if __name__ == '__main__':
     if args['list']:
         show_directory_list(backup_dirs)
     elif args['add_path']:
-        # TODO make into function for use elsewhere
-        new_args = []
-        if len(args['add_path']) > 2:
-            logger.info('More than two args, trying to fix spaces')
-            prev_arg = ''
-            for arg in args['add_path']:
-                if prev_arg != '':
-                    prev_arg += ' '
-                prev_arg += arg
-                if os.path.exists(prev_arg):
-                    new_args.append(prev_arg)
-                    prev_arg = ''
-
-            if prev_arg and os.path.exists(os.path.dirname(prev_arg)):
-                new_args.append(prev_arg)
-                logger.debug(
-                    "Couldn't find path, but parent dir is found, must be dest"
-                )
-
-        elif len(args['add_path']) == 2:
-            new_args = args['add_path']
+        new_args = handle_arg_spaces(args['add_path'])
         if len(new_args) > 1:
             add_directory(
                 CONFIG_FILE, new_args[0], new_args[1]
@@ -926,9 +942,13 @@ if __name__ == '__main__':
         else:
             logger.error('Two valid paths not given')
     elif args['delete_path']:
-        delete_directory(
-            CONFIG_FILE, args['delete_path'][0], args['delete_path'][1]
-        )
+        new_args = handle_arg_spaces(args['delete_path'])
+        if len(new_args) > 1:
+            delete_directory(
+                CONFIG_FILE, new_args[0], new_args[1]
+            )
+        else:
+            logger.error('Two valid paths not given')
     elif args['skip']:
         # TODO skip all subfolders
         add_skip(CONFIG_FILE, args['skip'])
