@@ -593,7 +593,12 @@ def add_directory(path, src, dest):
             'destination path %s not found, creating directory' % dest
         )
         try:
-            os.mkdir(dest)
+            if os.path.pardir in dest:
+                os.mkdir(dest)
+            else:
+                # best to use recursive make dir, but
+                # only works if dest does not contain pardir (..)
+                os.makedirs(dest)
         except OSError:
             logger.error('could not create directory')
             return
@@ -680,7 +685,12 @@ def perform_backup(directories):
             'destination path %s not found, creating directory' % dest
         )
         try:
-            os.mkdir(dest)
+            if os.path.pardir in dest:
+                os.mkdir(dest)
+            else:
+                # best to use recursive make dir, but
+                # only works if dest does not contain pardir (..)
+                os.makedirs(dest)
         except OSError:
             logger.error('could not create directory')
             return

@@ -16,7 +16,7 @@ setup(
     description='Python backup utility',
     packages=['backpy'],
     include_package_data=True,
-    install_requires=['python-dateutil', 'argparse'],
+    install_requires=['argparse'],
     test_suite='backpy_tests',
     zip_safe=False,
 )
