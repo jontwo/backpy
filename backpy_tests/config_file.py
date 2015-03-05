@@ -96,7 +96,10 @@ class ConfigTest(common.BackpyTest):
         backpy_py = os.path.join(self.root_dir, 'backpy', 'backpy.py')
         # add part of name here to ensure spaces are passed in
         subprocess.check_output(
-            ['python', backpy_py, '-a', src, 'seven', dest, 'seven']
+            [
+                'python', backpy_py, '-a', '\"' + src,
+                'seven\"', '\"' + dest, 'seven\"'
+            ]
         )
 
         size_after = self.get_file_size(backpy.CONFIG_FILE)
