@@ -41,14 +41,12 @@ import tarfile
 from argparse import ArgumentParser
 from datetime import datetime
 from hashlib import md5
-from pdb import set_trace  # noqa
 
 ROOT_PATH = os.path.abspath(os.sep)
 CONFIG_FILE = os.path.expanduser('~/.backpy')
 logger = logging.getLogger('backpy')
 
 # android backup mode
-global adb
 adb = False
 ANDROID_SKIPS = os.path.expanduser('~/.androidSkipFolders')
 
@@ -183,6 +181,7 @@ class FileIndex:
             if not len(file_info):
                 continue
             line = file_info.split()
+            f_size = None
             try:
                 f_permissions = line[0]
                 # f_owner = line[1]
@@ -397,6 +396,7 @@ class Backup:
 def get_file_hash(fullname, size=None, ctime=None):
     """return a string representing the md5 hash of the given file.
     use size and/or ctime args if file is on a phone and can't be read."""
+    md5hash = None
     if size or ctime:
         md5hash = md5(fullname)
         if size:
@@ -872,14 +872,14 @@ def handle_arg_spaces(old_args):
         logger.error('mismatched quotes in input argument: %s' % old_args)
     elif num_quotes != 0:
         in_quote = False
-        new_args = []
+        rebuilt_args = []
         quoted_arg = ''
         for arg in old_args:
             if in_quote:
                 if arg[-1] == '\"':
                     # has closing quote, finish rebuilding
                     quoted_arg = '%s %s' % (quoted_arg, arg[:-1])
-                    new_args.append(quoted_arg)
+                    rebuilt_args.append(quoted_arg)
                     in_quote = False
                     quoted_arg = ''
                 else:
@@ -892,8 +892,8 @@ def handle_arg_spaces(old_args):
                     in_quote = True
                 else:
                     # just add without changing
-                    new_args.append(arg)
-        return new_args
+                    rebuilt_args.append(arg)
+        return rebuilt_args
     # no quotes, just return the original list
     return old_args
 
