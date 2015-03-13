@@ -645,6 +645,14 @@ def add_skip(path, skips, add_regex=None):
     src = skips[0]
     dest = skips[1]
     logger.info('adding skips to backup of %s to %s:' % (src, dest))
+    if not os.path.isabs(src):
+        logger.warning('relative path used for source dir, adding current dir')
+        src = os.path.abspath(src)
+    if not os.path.isabs(dest):
+        logger.warning(
+            'relative path used for destination dir, adding current dir'
+        )
+        dest = os.path.abspath(dest)
     index = get_config_index(dirs, src, dest)
     if index is None:
         logger.error('entry not found')
