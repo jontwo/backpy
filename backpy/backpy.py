@@ -39,6 +39,7 @@ import subprocess
 import sys
 import tarfile
 from argparse import ArgumentParser
+from contextlib import closing
 from datetime import datetime
 from hashlib import md5
 
@@ -241,7 +242,8 @@ class Backup:
 
         logger.debug('writing files to backup')
         count = 0
-        with tarfile.open(self.get_tarpath(), 'w:gz') as tar:
+        # use closing for python 2.6 compatibility
+        with closing(tarfile.open(self.get_tarpath(), 'w:gz')) as tar:
             # write index
             path = os.path.join('.', '.%s_index' % self.__timestamp__)
             self.__new_index__.write_index(path)
@@ -375,7 +377,7 @@ class Backup:
         else:
             logger.debug('file not found')
 
-        with tarfile.open(self.get_tarpath(), 'r:*') as tar:
+        with closing(tarfile.open(self.get_tarpath(), 'r:*')) as tar:
             member_name = self.get_member_name(fullname)
             logger.info(
                 'restoring %s from %s' % (member_name, self.get_tarpath())
@@ -442,7 +444,7 @@ def read_backup(path):
     timestamp = os.path.basename(path).split('_')[0]
     temp_path = os.path.join('.', '.%sindex' % timestamp)
     try:
-        with tarfile.open(path, 'r:*') as tar:
+        with closing(tarfile.open(path, 'r:*')) as tar:
             tar.extract('.index', temp_path)
     except tarfile.ReadError as e:
         logger.error(e.message)
