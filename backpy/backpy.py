@@ -446,7 +446,7 @@ def read_backup(path):
     try:
         with closing(tarfile.open(path, 'r:*')) as tar:
             tar.extract('.index', temp_path)
-    except tarfile.ReadError as e:
+    except Exception as e:
         logger.error(e.message)
     finally:
         index = FileIndex(temp_path, reading=True)
