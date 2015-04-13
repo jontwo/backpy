@@ -837,6 +837,10 @@ def perform_restore(dirlist, files):
 
 
 def set_up_logging(level=1):
+    # remove existing handlers and add them again
+    for h in list(logger.handlers):
+        logger.removeHandler(h)    
+
     logger.setLevel(logging.DEBUG)
     sh = logging.StreamHandler(sys.stderr)
     sh.setFormatter(SpecialFormatter())
@@ -993,3 +997,5 @@ if __name__ == '__main__':
     if args['backup'] or args['restore'] or args['adb']:
         print ''
         logger.info('done. elapsed time = %s' % (datetime.now() - start))
+else:
+    set_up_logging(0)  # set up default logging on import
