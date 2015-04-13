@@ -403,9 +403,9 @@ def get_file_hash(fullname, size=None, ctime=None):
     if size or ctime:
         md5hash = md5(fullname)
         if size:
-            md5hash.update(size)
+            md5hash.update(str(size))
         if ctime:
-            md5hash.update(ctime)
+            md5hash.update(str(ctime))
     else:
         try:
             with open(fullname) as f:
