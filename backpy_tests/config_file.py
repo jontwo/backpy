@@ -47,7 +47,7 @@ class ConfigTest(common.BackpyTest):
         src = os.path.join('resources', 'source_files', 'one')
         dest = os.path.join(self.dest_root, 'one')
         backpy.add_directory(
-            backpy.CONFIG_FILE, os.path.join(self.root_dir, src), dest
+            backpy.CONFIG_FILE, os.path.join(self.working_dir, src), dest
         )
 
         size_after = self.get_file_size(backpy.CONFIG_FILE)
@@ -61,7 +61,7 @@ class ConfigTest(common.BackpyTest):
         src = os.path.join('resources', 'source_files', 'six seven')
         dest = os.path.join(self.dest_root, 'six seven')
         backpy.add_directory(
-            backpy.CONFIG_FILE, os.path.join(self.root_dir, src), dest
+            backpy.CONFIG_FILE, os.path.join(self.working_dir, src), dest
         )
 
         size_after = self.get_file_size(backpy.CONFIG_FILE)
@@ -72,14 +72,14 @@ class ConfigTest(common.BackpyTest):
     def testRemoveFolder(self):
         # add some entries to config
         self.add_one_folder()
-        self.add_six_seven_folder()
+        self.add_six_seven_folder(True)
 
         size_before = self.get_file_size(backpy.CONFIG_FILE)
         # use rel path for source so can search config file for text
         src = os.path.join('resources', 'source_files', 'six seven')
         dest = os.path.join(self.dest_root, 'six seven')
         backpy.delete_directory(
-            backpy.CONFIG_FILE, os.path.join(self.root_dir, src), dest
+            backpy.CONFIG_FILE, os.path.join(self.working_dir, src), dest
         )
 
         size_after = self.get_file_size(backpy.CONFIG_FILE)
@@ -93,7 +93,7 @@ class ConfigTest(common.BackpyTest):
         # use rel path for source so can search config file for text
         src = os.path.join('resources', 'source_files', 'six')
         dest = os.path.join(self.dest_root, 'six')
-        backpy_py = os.path.join(self.root_dir, 'backpy', 'backpy.py')
+        backpy_py = os.path.join(self.working_dir, 'backpy', 'backpy.py')
         # add part of name here to ensure spaces are passed in
         subprocess.check_output(
             [

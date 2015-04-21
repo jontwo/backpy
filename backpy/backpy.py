@@ -28,9 +28,10 @@ POSSIBILITY OF SUCH DAMAGE.
 """
 
 __author__ = 'Steffen Schneider'
-__version__ = '1.1'
+__version__ = '1.2'
 __copyright__ = 'Simplified BSD license'
 
+import fnmatch
 import logging
 import logging.handlers
 import os
@@ -40,6 +41,7 @@ import subprocess
 import sys
 import tarfile
 from argparse import ArgumentParser
+from contextlib import closing
 from datetime import datetime
 from hashlib import md5
 
@@ -75,9 +77,6 @@ class FileIndex:
             logger.warning('root dir %s does not exist or is excluded' % path)
 
     def is_valid(self, f):
-        flags = 0
-        if os.getenv("OS") == "Windows_NT":
-            flags = re.IGNORECASE
         if adb:
             if re.match('.*/cache', f):
                 print '*** SKIPPING CACHE ***'
@@ -92,8 +91,12 @@ class FileIndex:
             return False
         if self.__exclusion_rules__:
             for regex in self.__exclusion_rules__:
-                if re.match(regex, f, flags=flags) is not None:
-                    return False
+                if os.getenv("OS") == "Windows_NT":
+                    if fnmatch.fnmatch(f, regex):
+                        return False
+                else:
+                    if fnmatch.fnmatchcase(f, regex):
+                        return False
         return True
 
     def gen_index(self):
@@ -114,9 +117,9 @@ class FileIndex:
                     logger.info('skipping directory: %s' % fullpath)
             for filename in filenames:
                 fullname = os.path.join(dirname, filename)
-                # if not self.is_valid(fullname):
-                #     logger.info('skipping file: %s' % fullname)
-                #     continue
+                if not self.is_valid(fullname):
+                    logger.info('skipping file: %s' % fullname)
+                    continue
                 digest = get_file_hash(fullname)
                 if digest:
                     self.__files__[fullname] = digest
@@ -244,7 +247,8 @@ class Backup:
 
         logger.debug('writing files to backup')
         count = 0
-        with tarfile.open(self.get_tarpath(), 'w:gz') as tar:
+        # use closing for python 2.6 compatibility
+        with closing(tarfile.open(self.get_tarpath(), 'w:gz')) as tar:
             # write index
             path = os.path.join('.', '.%s_index' % self.__timestamp__)
             self.__new_index__.write_index(path)
@@ -378,7 +382,7 @@ class Backup:
         else:
             logger.debug('file not found')
 
-        with tarfile.open(self.get_tarpath(), 'r:*') as tar:
+        with closing(tarfile.open(self.get_tarpath(), 'r:*')) as tar:
             member_name = self.get_member_name(fullname)
             logger.info(
                 'restoring %s from %s' % (member_name, self.get_tarpath())
@@ -404,9 +408,9 @@ def get_file_hash(fullname, size=None, ctime=None):
     if size or ctime:
         md5hash = md5(fullname)
         if size:
-            md5hash.update(size)
+            md5hash.update(str(size))
         if ctime:
-            md5hash.update(ctime)
+            md5hash.update(str(ctime))
     else:
         try:
             with open(fullname) as f:
@@ -447,9 +451,9 @@ def read_backup(path):
     timestamp = os.path.basename(path).split('_')[0]
     temp_path = os.path.join('.', '.%sindex' % timestamp)
     try:
-        with tarfile.open(path, 'r:*') as tar:
+        with closing(tarfile.open(path, 'r:*')) as tar:
             tar.extract('.index', temp_path)
-    except tarfile.ReadError as e:
+    except Exception as e:
         logger.error(e.message)
     finally:
         index = FileIndex(temp_path, reading=True)
@@ -639,13 +643,12 @@ def delete_directory(path, src, dest):
     write_directory_list(path, dirs)
 
 
-# TODO better solution for skip all subfolders
 def add_skip(path, skips, add_regex=None):
     if len(skips) < 3:
         print 'skip syntax: <src> <dest> <skip dir> {... <skip dir>}'
         print 'source and destination directories must be specified first'
         print 'then one or more skip directories can be added'
-        print 'note: -s "(\S)*<string>(\S)*" is equivalent to -c "<string>"'
+        print 'note: -s "*<string>*" is equivalent to -c "<string>"'
         return
     dirs = read_directory_list(path)
     src = skips[0]
@@ -668,8 +671,8 @@ def add_skip(path, skips, add_regex=None):
     for skip in skips[2:]:
         # if 'contains' option is used and regex hasn't already been added,
         # wrap skip string in any character regex
-        if add_regex and u'(\S)*' != skip[:5] and u'(\S)*' != skip[-5:]:
-            skip = u'(\S)*{0:s}(\S)*'.format(skip)
+        if add_regex and u'*' != skip[0] and u'*' != skip[-1]:
+            skip = u'*{0:s}*'.format(skip)
         if skip in line[2:]:
             logger.error('%s already added, aborting' % skip)
             return
@@ -841,6 +844,10 @@ def perform_restore(dirlist, files):
 
 
 def set_up_logging(level=1):
+    # remove existing handlers and add them again
+    for h in list(logger.handlers):
+        logger.removeHandler(h)    
+
     logger.setLevel(logging.DEBUG)
     sh = logging.StreamHandler(sys.stderr)
     sh.setFormatter(SpecialFormatter())
@@ -926,11 +933,12 @@ def parse_args():
     group.add_argument('-s', '--skip', dest='skip', metavar='string',
                        nargs='+', required=False,
                        help='skips all directories that match the given\
-                       string(s)')
-    group.add_argument('-c', '--contains', dest='contains', metavar='regex',
+                       fnmatch expression, e.g. skip all subdirectories\
+                       with <source dir>\*\*')
+    group.add_argument('-c', '--contains', dest='contains', metavar='string',
                        nargs='+', required=False,
                        help='skips all directories that match the given\
-                       regular expression')
+                       fnmatch expression')
     group.add_argument('-d', '--delete', metavar='path', nargs='+',
                        dest='delete_path', required=False,
                        help='remove the specified source and destination\
@@ -974,7 +982,6 @@ if __name__ == '__main__':
         else:
             logger.error('Two valid paths not given')
     elif args['skip']:
-        # TODO skip all subfolders
         add_skip(CONFIG_FILE, args['skip'])
     elif args['contains']:
         add_skip(CONFIG_FILE, args['contains'], True)
@@ -997,3 +1004,5 @@ if __name__ == '__main__':
     if args['backup'] or args['restore'] or args['adb']:
         print ''
         logger.info('done. elapsed time = %s' % (datetime.now() - start))
+else:
+    set_up_logging(0)  # set up default logging on import

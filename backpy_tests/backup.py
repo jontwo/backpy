@@ -6,6 +6,7 @@ import common
 import os
 import unittest
 
+
 class BackupTest(common.BackpyTest):
 
     @classmethod
