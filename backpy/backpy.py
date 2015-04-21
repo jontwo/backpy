@@ -28,7 +28,7 @@ POSSIBILITY OF SUCH DAMAGE.
 """
 
 __author__ = 'Steffen Schneider'
-__version__ = '1.2'
+__version__ = '1.3'
 __copyright__ = 'Simplified BSD license'
 
 import fnmatch
