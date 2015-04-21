@@ -79,6 +79,9 @@ class FileIndex:
         if os.getenv("OS") == "Windows_NT":
             flags = re.IGNORECASE
         if adb:
+            if re.match('.*/cache', f):
+                print '*** SKIPPING CACHE ***'
+                return False
             if os.path.exists(ANDROID_SKIPS):
                 with open(ANDROID_SKIPS) as skip_list:
                     for entry in skip_list:
