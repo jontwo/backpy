@@ -28,13 +28,15 @@ POSSIBILITY OF SUCH DAMAGE.
 """
 
 __author__ = 'Steffen Schneider'
-__version__ = '1.2'
+__version__ = '1.3'
 __copyright__ = 'Simplified BSD license'
 
 import fnmatch
 import logging
 import logging.handlers
 import os
+import re
+import stat
 import subprocess
 import sys
 import tarfile
@@ -76,6 +78,9 @@ class FileIndex:
 
     def is_valid(self, f):
         if adb:
+            if re.match('.*/cache', f):
+                print '*** SKIPPING CACHE ***'
+                return False
             if os.path.exists(ANDROID_SKIPS):
                 with open(ANDROID_SKIPS) as skip_list:
                     for entry in skip_list:
@@ -177,7 +182,7 @@ class FileIndex:
         logger.debug('reading adb folder %s' % path)
         # check files in this folder
         for out in subprocess.check_output(
-            ['adb', 'shell', 'ls', '-a', '-l', path]
+            ['adb', 'shell', 'ls', '-l', path]
         ).split('\n'):
             file_info = out.strip()
             if not len(file_info):
@@ -264,7 +269,7 @@ class Backup:
                     )
                     try:
                         subprocess.check_call(
-                            ['adb', 'pull', f, temp_name]
+                            ['adb', 'pull', '-a', f, temp_name]
                         )
                         # add to tar using original name
                         tar.add(temp_name, f)
@@ -423,6 +428,7 @@ def delete_temp_files(path):
     if os.path.isfile(path):
         # single file - delete it and return
         try:
+            os.chmod(path, stat.S_IWUSR)
             os.unlink(path)
         except OSError:
             logger.warning('could not delete %s' % path)
@@ -433,6 +439,7 @@ def delete_temp_files(path):
         for f in os.listdir(path):
             delete_temp_files(os.path.join(path, f))
         try:
+            os.chmod(path, stat.S_IWUSR)
             os.rmdir(path)
         except OSError:
             logger.warning('could not delete %s' % path)
