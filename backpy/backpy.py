@@ -290,37 +290,36 @@ class Backup:
             delete_temp_files(self.get_tarpath())
             logger.warning('no files changed - nothing to back up')
 
-    # TODO platform independent paths
-    def full_recovery(self):
-        tar = tarfile.open(os.path.join(
-            self.__path__,
-            'full/%s_fullbackup.tar.gz' % datetime.now().strftime(
-                '%Y%m%d%H%M%S'
-            )), 'w:gz')
-        backups = all_backups(self.__path__)
-        i = 0
-        new_queue = []
-        queue = self.__new_index__.files()
-        while queue and i < len(backups):
-            current_backup = read_backup(
-                os.path.join(self.__path__, backups[i])
-            )
-            current_tar = tarfile.open(current_backup.get_tarpath(), 'r:*')
-            i += 1
-            while queue:
-                filename = queue.pop()
-                if filename[0] == '/':
-                    filename = filename[1:]
-                try:
-                    member = current_tar.getmember(filename)
-                    tar.addfile(member)
-                except KeyError:
-                    new_queue.append(filename)
-            current_tar.close()
-            queue = new_queue
-            new_queue = []
-        tar.close()
-        return len(queue)
+    # def full_recovery(self):
+    #     tar = tarfile.open(os.path.join(
+    #         self.__path__,
+    #         'full/%s_fullbackup.tar.gz' % datetime.now().strftime(
+    #             '%Y%m%d%H%M%S'
+    #         )), 'w:gz')
+    #     backups = all_backups(self.__path__)
+    #     i = 0
+    #     new_queue = []
+    #     queue = self.__new_index__.files()
+    #     while queue and i < len(backups):
+    #         current_backup = read_backup(
+    #             os.path.join(self.__path__, backups[i])
+    #         )
+    #         current_tar = tarfile.open(current_backup.get_tarpath(), 'r:*')
+    #         i += 1
+    #         while queue:
+    #             filename = queue.pop()
+    #             if filename[0] == '/':
+    #                 filename = filename[1:]
+    #             try:
+    #                 member = current_tar.getmember(filename)
+    #                 tar.addfile(member)
+    #             except KeyError:
+    #                 new_queue.append(filename)
+    #         current_tar.close()
+    #         queue = new_queue
+    #         new_queue = []
+    #     tar.close()
+    #     return len(queue)
 
     def contains_file(self, f, exact_match=True):
         """look for a specific file in the index, return the hash
