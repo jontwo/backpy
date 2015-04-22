@@ -913,7 +913,9 @@ def handle_arg_spaces(old_args):
 def parse_args():
     parser = ArgumentParser(description='Command line backup utility')
     parser.add_argument('-v', '--verbose', action='store_true', dest='verbose',
-                        help='enable console logging')
+                        help='enable verbose logging')
+    parser.add_argument('--version', action='store_true', dest='show_version',
+                        help='show version')
     group = parser.add_mutually_exclusive_group()
     group.add_argument('-l', '--list', dest='list', action='store_true',
                        required=False,
@@ -962,7 +964,9 @@ if __name__ == '__main__':
     set_up_logging(2 if args['verbose'] else 1)
     init(CONFIG_FILE)
     backup_dirs = read_directory_list(CONFIG_FILE)
-    if args['list']:
+    if args['show_version']:
+        logger.info('Backpy version: %s' % __version__)
+    elif args['list']:
         show_directory_list(backup_dirs)
     elif args['add_path']:
         new_args = handle_arg_spaces(args['add_path'])
