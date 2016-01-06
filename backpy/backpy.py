@@ -28,7 +28,7 @@ POSSIBILITY OF SUCH DAMAGE.
 """
 
 __author__ = 'Steffen Schneider'
-__version__ = '1.3'
+__version__ = '1.3.1'
 __copyright__ = 'Simplified BSD license'
 
 import fnmatch
@@ -48,6 +48,7 @@ from hashlib import md5
 ROOT_PATH = os.path.abspath(os.sep)
 CONFIG_FILE = os.path.expanduser('~/.backpy')
 logger = logging.getLogger('backpy')
+LOG_FILE = os.path.expanduser('~/backpy.log')
 
 # android backup mode
 adb = False
@@ -842,10 +843,16 @@ def perform_restore(dirlist, files):
         find_file_in_backup(dirlist, os.path.normpath(f))
 
 
+def set_log_path(log_path):
+    global LOG_FILE
+    LOG_FILE = log_path
+
+
 def set_up_logging(level=1):
+    global LOG_FILE
     # remove existing handlers and add them again
     for h in list(logger.handlers):
-        logger.removeHandler(h)    
+        logger.removeHandler(h)
 
     logger.setLevel(logging.DEBUG)
     sh = logging.StreamHandler(sys.stderr)
@@ -857,7 +864,7 @@ def set_up_logging(level=1):
     if 0 != level:
         logger.addHandler(sh)
     fh = logging.handlers.RotatingFileHandler(
-        os.path.expanduser('~/backpy.log'), maxBytes=1000000, backupCount=3
+        LOG_FILE, maxBytes=1000000, backupCount=3
     )
     fh.setLevel(logging.DEBUG)
     ff = logging.Formatter('%(asctime)s: %(levelname)s: %(name)s: %(message)s')
