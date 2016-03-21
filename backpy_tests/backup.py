@@ -32,7 +32,7 @@ class BackupTest(common.BackpyTest):
         self.one_folder = os.path.join(self.dest_root, 'one')
         self.six_seven_folder = os.path.join(self.dest_root, 'six seven')
 
-    # perform backup into an empty destination folder
+    # 1. perform backup into an empty destination folder
     def testInitialBackup(self):
         # make sure dest is empty
         zips_in_one = self.count_files(
@@ -56,6 +56,13 @@ class BackupTest(common.BackpyTest):
             os.path.join(self.six_seven_folder, '*.tar.gz')
         )
         self.assertEqual(zips_in_one + zips_in_six_seven, 2)
+
+    # 2. do 1, change a file, backup again
+    # 3. do 2, change a file, backup again
+    # 4. do 3, delete the file, backup again
+    # 5. do 1, add a new file, backup again
+    # 6. do 1, add a folder, backup again
+    # 7. do 6, delete a different folder, backup again
 
 if __name__ == '__main__':
     suite = unittest.TestLoader().loadTestsFromTestCase(BackupTest)

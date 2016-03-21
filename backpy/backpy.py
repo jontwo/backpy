@@ -80,7 +80,6 @@ class FileIndex:
     def is_valid(self, f):
         if adb:
             if re.match('.*/cache', f):
-                print '*** SKIPPING CACHE ***'
                 return False
             if os.path.exists(ANDROID_SKIPS):
                 with open(ANDROID_SKIPS) as skip_list:
@@ -119,7 +118,7 @@ class FileIndex:
             for filename in filenames:
                 fullname = os.path.join(dirname, filename)
                 if not self.is_valid(fullname):
-                    logger.info('skipping file: %s' % fullname)
+                    logger.debug('skipping file: %s' % fullname)
                     continue
                 digest = get_file_hash(fullname)
                 if digest:
