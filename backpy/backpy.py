@@ -26,11 +26,6 @@ ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE.
 
 """
-
-__author__ = 'Steffen Schneider'
-__version__ = '1.3.1'
-__copyright__ = 'Simplified BSD license'
-
 import fnmatch
 import logging
 import logging.handlers
@@ -45,6 +40,10 @@ from contextlib import closing
 from datetime import datetime
 from hashlib import md5
 
+__author__ = 'Steffen Schneider'
+__version__ = '1.3.1'
+__copyright__ = 'Simplified BSD license'
+
 ROOT_PATH = os.path.abspath(os.sep)
 CONFIG_FILE = os.path.expanduser('~/.backpy')
 logger = logging.getLogger('backpy')
@@ -56,9 +55,11 @@ ANDROID_SKIPS = os.path.expanduser('~/.androidSkipFolders')
 
 
 class SpecialFormatter(logging.Formatter):
-    FORMATS = {logging.DEBUG: "DEBUG: %(lineno)d: %(message)s",
-               logging.INFO: "%(message)s",
-               'DEFAULT': "%(levelname)s: %(message)s"}
+    FORMATS = {
+        logging.DEBUG: "DEBUG: %(lineno)d: %(message)s",
+        logging.INFO: "%(message)s",
+        'DEFAULT': "%(levelname)s: %(message)s"
+    }
 
     def format(self, record):
         self._fmt = self.FORMATS.get(record.levelno, self.FORMATS['DEFAULT'])
@@ -147,9 +148,7 @@ class FileIndex:
         with open(path, 'w+') as index:
             index.writelines(["%s\n" % s for s in self.__dirs__])
             index.write('# files\n')
-            index.writelines(
-                ['%s@@@%s\n' % (f, self.hash(f)) for f in self.files()]
-            )
+            index.writelines(['%s@@@%s\n' % (f, self.hash(f)) for f in self.files()])
 
     def read_index(self, path=None):
         if path is None:
@@ -176,14 +175,21 @@ class FileIndex:
                 filelist.append(f)
         return filelist
 
+    def get_missing(self, index=None):
+        if not index:
+            return []
+
+        return filter(lambda x: x not in self.files(), index.files())
+
     def adb_read_folder(self, path):
-        """use adb to list all files and folders in path,
-        hashing with full file path, modified date and time, and size"""
+        """
+        Use adb to list all files and folders in path, hashing with full file path,
+        modified date and time, and size
+        :param path: full path of the folder to read
+        """
         logger.debug('reading adb folder %s' % path)
         # check files in this folder
-        for out in subprocess.check_output(
-            ['adb', 'shell', 'ls', '-l', path]
-        ).split('\n'):
+        for out in subprocess.check_output(['adb', 'shell', 'ls', '-l', path]).split('\n'):
             file_info = out.strip()
             if not len(file_info):
                 continue
@@ -215,30 +221,30 @@ class FileIndex:
                         self.adb_read_folder(fullname)
                     else:
                         # file - hash and add to list
-                        digest = get_file_hash(
-                            fullname, f_date + f_time, f_size
-                        )
+                        digest = get_file_hash(fullname, f_date + f_time, f_size)
                         if digest:
                             self.__files__[fullname] = digest
-
             except IndexError:
                 logger.warning('could not extract info from %s' % file_info)
 
 
 class Backup:
-    def __init__(
-        self, path, index, parent=None,
-        timestamp=datetime.now().strftime('%Y%m%d%H%M%S')
-    ):
+    def __init__(self, path, index, parent=None, timestamp=None):
         self.__path__ = path
-        self.__timestamp__ = timestamp
-        self.__old_index__ = parent.__new_index__ \
-            if parent is not None else None
+        self.__timestamp__ = timestamp or self.get_timestamp()
+        self.__old_index__ = parent.__new_index__ if parent else None
         self.__new_index__ = index
 
+    @staticmethod
+    def get_timestamp():
+        """
+        Static method to allow mocking of timestamp during unit tests
+        :return: currernt time in format 19800101120000
+        """
+        return datetime.now().strftime('%Y%m%d%H%M%S')
+
     def get_tarpath(self):
-        return os.path.join(self.__path__,
-                            '%s_backup.tar.gz' % self.__timestamp__)
+        return os.path.join(self.__path__, '%s_backup.tar.gz' % self.__timestamp__)
 
     def write_to_disk(self):
         if not len(self.__new_index__.files()):
@@ -246,7 +252,7 @@ class Backup:
             return
 
         logger.debug('writing files to backup')
-        count = 0
+        added = 0
         # use closing for python 2.6 compatibility
         with closing(tarfile.open(self.get_tarpath(), 'w:gz')) as tar:
             # write index
@@ -260,20 +266,14 @@ class Backup:
                 logger.info('adding %s...' % f)
                 if adb:
                     # pull files off phone into temp folder before backing up
-                    temp_path = os.path.join(
-                        '.', '.%s_adb' % self.__timestamp__
-                    )
+                    temp_path = os.path.join('.', '.%s_adb' % self.__timestamp__)
                     # replace file root with temp path
-                    temp_name = (
-                        os.path.abspath(temp_path) + f.replace('/', os.sep)
-                    )
+                    temp_name = (os.path.abspath(temp_path) + f.replace('/', os.sep))
                     try:
-                        subprocess.check_call(
-                            ['adb', 'pull', '-a', f, temp_name]
-                        )
+                        subprocess.check_call(['adb', 'pull', '-a', f, temp_name])
                         # add to tar using original name
                         tar.add(temp_name, f)
-                        count += 1
+                        added += 1
                     except subprocess.CalledProcessError:
                         logger.warning('could not pull %s from phone' % f)
                     finally:
@@ -283,14 +283,16 @@ class Backup:
                     delete_temp_files(temp_path)
                 else:
                     tar.add(f)
-                    count += 1
+                    added += 1
 
             # backup current config file
             tar.add(CONFIG_FILE, '.backpy')
 
-        # do not keep index if nothing added
-        if count:
-            logger.info('%s files backed up' % count)
+        # do not keep index if nothing added or removed
+        removed = self.__new_index__.get_missing(self.__old_index__)
+        if added or removed:
+            logger.info('%s files backed up' % added)
+            logger.info('%s files removed' % len(removed))
         else:
             delete_temp_files(self.get_tarpath())
             logger.warning('no files changed - nothing to back up')
@@ -327,15 +329,30 @@ class Backup:
     #     return len(queue)
 
     def contains_file(self, f, exact_match=True):
-        """look for a specific file in the index, return the hash
-        if found or None if not"""
+        """
+        Look for a specific file in the index
+        :param f: name of file
+        :param exact_match: true to match the name exactly, false for partial matches
+        :return: the file hash or None if not found
+        """
         logger.debug('find file %s' % f)
         return self.__new_index__.hash(f, exact_match)
 
     def contains_folder(self, f):
-        """look for a specific folder in the index"""
+        """
+        Look for a specific folder in the index
+        :param f: name of folder
+        :return: true if f is in the index, false if not
+        """
         logger.debug('find folder %s' % f)
         return self.__new_index__.is_folder(f)
+
+    def get_missing_files(self):
+        """
+        Find all the files that have been removed since the last backup
+        :return: list of missing files
+        """
+        return filter(lambda x: x not in self.__old_index__, self.__new_index__)
 
     def restore_folder(self, folder):
         # logger.debug('restoring folder %s' % folder)  # TODO
@@ -355,9 +372,7 @@ class Backup:
         #     )
 
     def restore_file(self, filename):
-        logger.debug(
-            'restoring file %s from %s' % (filename, self.get_tarpath())
-        )
+        logger.debug('restoring file %s from %s' % (filename, self.get_tarpath()))
         fullname = filename
         # get destination dir
         dest = os.path.dirname(filename)
@@ -383,14 +398,16 @@ class Backup:
 
         with closing(tarfile.open(self.get_tarpath(), 'r:*')) as tar:
             member_name = self.get_member_name(fullname)
-            logger.info(
-                'restoring %s from %s' % (member_name, self.get_tarpath())
-            )
+            logger.info('restoring %s from %s' % (member_name, self.get_tarpath()))
             tar.extractall(ROOT_PATH, [tar.getmember(member_name)])
 
-    # noinspection PyMethodMayBeStatic
-    def get_member_name(self, name):
-        """convert full (source) path of file to path within tar"""
+    @staticmethod
+    def get_member_name(name):
+        """
+        Convert full (source) path of file to path within tar
+        :param name: full path of file
+        :return: member name of file
+        """
         logger.debug('getting member name for %s' % name)
         member = name.replace(ROOT_PATH, '')
         if os.getenv("OS") == "Windows_NT":
@@ -401,8 +418,14 @@ class Backup:
 
 
 def get_file_hash(fullname, size=None, ctime=None):
-    """return a string representing the md5 hash of the given file.
-    use size and/or ctime args if file is on a phone and can't be read."""
+    """
+    Return a string representing the md5 hash of the given file.
+    Use size and/or ctime args if file is on a phone and can't be read.
+    :param fullname: full path of file
+    :param size: file size (optional)
+    :param ctime: file create time (optional)
+    :return: hex string hash of file
+    """
     md5hash = None
     if size or ctime:
         md5hash = md5(fullname)
@@ -417,14 +440,15 @@ def get_file_hash(fullname, size=None, ctime=None):
         except IOError:
             logger.warning('could not process file: %s' % fullname)
 
-    return ''.join(
-        ['%x' % ord(h) for h in md5hash.digest()]
-    ) if md5hash else None
+    return ''.join(['%x' % ord(h) for h in md5hash.digest()]) if md5hash else None
 
 
 def delete_temp_files(path):
-    """Attempt to delete temporary files or folders in the given path.
-    Just carry on if any can't be deleted."""
+    """
+    Attempt to delete temporary files or folders in the given path.
+    Just carry on if any can't be deleted.
+    :param path: name of file or folder to delete
+    """
     if os.path.isfile(path):
         # single file - delete it and return
         try:
@@ -459,7 +483,7 @@ def read_backup(path):
         index.read_index(os.path.join(temp_path, '.index'))
         # delete temp index now we've read it
         delete_temp_files(temp_path)
-        return Backup(os.path.dirname(path), index, None, timestamp)
+        return Backup(os.path.dirname(path), index, timestamp=timestamp)
 
 
 def all_backups(path):
@@ -478,12 +502,16 @@ def all_backups(path):
 
 def latest_backup(path):
     backups = all_backups(path)
-    return read_backup(os.path.join(path, backups[0])) \
-        if len(backups) > 0 else None
+    return read_backup(os.path.join(path, backups[0])) if len(backups) > 0 else None
 
 
 def string_equals(s1, s2):
-    """Compare two strings, ignoring case for Windows"""
+    """
+    Compare two strings, ignoring case for Windows
+    :param s2: string to compare
+    :param s1: string to compare
+    :return: true if the strings are equal, false if not
+    """
     if os.getenv("OS") == "Windows_NT":
         s1 = s1.lower()
         s2 = s2.lower()
@@ -491,7 +519,12 @@ def string_equals(s1, s2):
 
 
 def string_contains(s1, s2):
-    """Check if one string contains another, ignoring case for Windows"""
+    """
+    Check if one string contains another, ignoring case for Windows
+    :param s2: string to search in
+    :param s1: string to search for
+    :return: true if s1 is found in s2, false if not
+    """
     if os.getenv("OS") == "Windows_NT":
         s1 = s1.lower()
         s2 = s2.lower()
@@ -499,7 +532,12 @@ def string_contains(s1, s2):
 
 
 def list_contains(s1, l2):
-    """Check if list contains string, ignoring case for Windows"""
+    """
+    Check if list contains string, ignoring case for Windows
+    :param l2: list to search in
+    :param s1: string to search for
+    :return: true if string is found in list, false if not
+    """
     if os.getenv("OS") == "Windows_NT":
         s1 = s1.lower()
         l2 = map(str.lower, l2)
@@ -507,8 +545,13 @@ def list_contains(s1, l2):
 
 
 def get_filename_index(s1, l2):
-    """Get index for filename in list, ignoring case for Windows and
-    ignoring path. Returns None if not found"""
+    """
+    Get index for filename in list, ignoring case for Windows and ignoring path.
+    Returns None if not found
+    :param l2: list to search in
+    :param s1: name of file
+    :return: index number of file or None if not found
+    """
     if os.getenv("OS") == "Windows_NT":
         s1 = s1.lower()
         l2 = map(str.lower, l2)
@@ -519,9 +562,13 @@ def get_filename_index(s1, l2):
 
 
 def get_config_index(dirlist, src, dest):
-    """Find the entry in the config file with the given source and
-    destination and return the index.
-    Returns None if not found."""
+    """
+    Find the entry in the config file with the given source and destination.
+    :param dirlist: list of entries from config file
+    :param src: source directory
+    :param dest: destination directory
+    :return: index number of file or None if not found
+    """
     logger.debug('get index of %s, %s' % (src, dest))
     for i in range(len(dirlist)):
         if len(dirlist[i]) >= 2:
@@ -530,13 +577,8 @@ def get_config_index(dirlist, src, dest):
             dest = os.path.normpath(dest)
             index_src = os.path.normpath(dirlist[i][0])
             index_dest = os.path.normpath(dirlist[i][1])
-            logger.debug('entry %d: %s, %s.' % (
-                i, index_src, index_dest
-            ))
-            if (
-                string_equals(index_src, src) and
-                string_equals(index_dest, dest)
-            ):
+            logger.debug('entry %d: %s, %s.' % (i, index_src, index_dest))
+            if string_equals(index_src, src) and string_equals(index_dest, dest):
                 return i
     return None
 
@@ -571,9 +613,13 @@ def show_directory_list(dirs):
 
 
 def add_directory(path, src, dest):
-    """Add new source and destination directories to the config file.
-    Make sure paths are absolute, exist, and
-    are not already added before adding."""
+    """
+    Add new source and destination directories to the config file.
+    Make sure paths are absolute, exist, and are not already added before adding.
+    :param path: path to config file
+    :param src: source directory
+    :param dest: destination directory
+    """
     logger.debug('adding directories %s, %s to list' % (src, dest))
     dirs = read_directory_list(path)
     if get_config_index(dirs, src, dest) is not None:
@@ -583,9 +629,7 @@ def add_directory(path, src, dest):
         logger.warning('relative path used for source dir, adding current dir')
         src = os.path.abspath(src)
     if not os.path.isabs(dest):
-        logger.warning(
-            'relative path used for destination dir, adding current dir'
-        )
+        logger.warning('relative path used for destination dir, adding current dir')
         dest = os.path.abspath(dest)
     # check config file again now paths are absolute
     if get_config_index(dirs, src, dest) is not None:
@@ -598,9 +642,7 @@ def add_directory(path, src, dest):
         logger.error('source path %s not found' % src)
         return
     if not os.path.exists(dest):
-        logger.warning(
-            'destination path %s not found, creating directory' % dest
-        )
+        logger.warning('destination path %s not found, creating directory' % dest)
         try:
             if os.path.pardir in dest:
                 os.mkdir(dest)
@@ -622,14 +664,10 @@ def delete_directory(path, src, dest):
     index = get_config_index(dirs, src, dest)
     if index is None:
         if not os.path.isabs(src):
-            logger.warning(
-                'relative path used for source dir, adding current dir'
-            )
+            logger.warning('relative path used for source dir, adding current dir')
             src = os.path.abspath(src)
         if not os.path.isabs(dest):
-            logger.warning(
-                'relative path used for destination dir, adding current dir'
-            )
+            logger.warning('relative path used for destination dir, adding current dir')
             dest = os.path.abspath(dest)
 
         # check config file again now paths are absolute
@@ -657,9 +695,7 @@ def add_skip(path, skips, add_regex=None):
         logger.warning('relative path used for source dir, adding current dir')
         src = os.path.abspath(src)
     if not os.path.isabs(dest):
-        logger.warning(
-            'relative path used for destination dir, adding current dir'
-        )
+        logger.warning('relative path used for destination dir, adding current dir')
         dest = os.path.abspath(dest)
     index = get_config_index(dirs, src, dest)
     if index is None:
@@ -684,7 +720,7 @@ def add_skip(path, skips, add_regex=None):
     write_directory_list(path, dirs)
 
 
-def perform_backup(directories):
+def perform_backup(directories, timestamp=None):
     if len(directories) < 2:
         logger.error('not enough directories to backup')
         logger.error(directories)
@@ -697,9 +733,7 @@ def perform_backup(directories):
         logger.info('  skipping directories that match %s' % ' or '.join(skip))
     # check dest exists before indexing
     if not os.path.exists(dest):
-        logger.warning(
-            'destination path %s not found, creating directory' % dest
-        )
+        logger.warning('destination path %s not found, creating directory' % dest)
         try:
             if os.path.pardir in dest:
                 os.mkdir(dest)
@@ -712,14 +746,19 @@ def perform_backup(directories):
             return
     f = FileIndex(src, skip)
     f.gen_index()
-    backup = Backup(dest, f, latest_backup(dest))
+    backup = Backup(dest, f, latest_backup(dest), timestamp)
     backup.write_to_disk()
 
 
 def search_backup(path, filename, files, folders, exact_match=True):
-    """look through all the backups in path for filename,
-    returning any files or folders that match.
-    set exact_match to false to allow partial matches."""
+    """
+    Look through all the backups in path for filename, returning any files or folders that match.
+    :param path: backup folder
+    :param filename: name of file to search for
+    :param files: array of file names
+    :param folders: array of folder names
+    :param exact_match: true to match the name exactly, false for partial matches
+    """
     logger.debug('searching %s (exact=%s)' % (path, exact_match))
     last_hash = None
     last_backup = None
@@ -766,8 +805,7 @@ def find_file_in_backup(dirlist, filename):
 
             if 1 == attempt:
                 # then look in all folders for exact string entered
-                if string_contains(dirs[0], filename) or \
-                   string_contains(filename, dirs[0]):
+                if string_contains(dirs[0], filename) or string_contains(filename, dirs[0]):
                     searched.append(dirs)
                     logger.debug('string contains, looking in %s' % dirs[1])
                     search_backup(dirs[1], filename, files, folders)
@@ -781,9 +819,7 @@ def find_file_in_backup(dirlist, filename):
             if 3 == attempt:
                 # then look again in case partial path given
                 logger.debug('looking for partial match in %s' % dirs[1])
-                search_backup(
-                    dirs[1], filename, files, folders, exact_match=False
-                )
+                search_backup(dirs[1], filename, files, folders, exact_match=False)
 
         # found something, restore it and return
         if files:
@@ -883,7 +919,10 @@ def init(file_config):
 
 
 def handle_arg_spaces(old_args):
-    """Some shells mess up the quoted input arguments, if so, reassemble them
+    """
+    Some shells mess up the quoted input arguments, if so, reassemble them
+    :param old_args: original input arguments
+    :return: args list with quotes and spaces corrected
     """
     num_quotes = len(str(old_args)) - len(str(old_args).replace('\"', ''))
     if num_quotes % 2 != 0:
@@ -918,50 +957,32 @@ def handle_arg_spaces(old_args):
 
 def parse_args():
     parser = ArgumentParser(description='Command line backup utility')
-    parser.add_argument('-v', '--verbose', action='store_true', dest='verbose',
-                        help='enable verbose logging')
-    parser.add_argument('--version', action='store_true', dest='show_version',
-                        help='show version')
+    parser.add_argument('-v', '--verbose', action='store_true', dest='verbose', help='enable verbose logging')
+    parser.add_argument('--version', action='store_true', dest='show_version', help='show version')
     group = parser.add_mutually_exclusive_group()
-    group.add_argument('-l', '--list', dest='list', action='store_true',
-                       required=False,
-                       help='list the all the directories currently in the\
-                       config file')
-    group.add_argument('-a', '--add', metavar='path', nargs='+',
-                       dest='add_path', required=False,
-                       help='adds the specified source directory to the\
-                       backup index. the backups will be stored in the\
-                       specified destination directory.\
-                       if relative paths used, the current working directory\
-                       will be added.')
+    group.add_argument('-l', '--list', dest='list', action='store_true', required=False,
+                       help='list the all the directories currently in the config file')
+    group.add_argument('-a', '--add', metavar='path', nargs='+', dest='add_path', required=False,
+                       help='adds the specified source directory to the backup index. the backups will be\
+                       stored in the specified destination directory. if relative paths used, the current\
+                       working directory will be added.')
     group.add_argument('-b', '--backup', action='store_true', dest='backup',
-                       help='performs a backup for all path specified in the\
-                       backup.lst file')
-    group.add_argument('-s', '--skip', dest='skip', metavar='string',
-                       nargs='+', required=False,
-                       help='skips all directories that match the given\
-                       fnmatch expression, e.g. skip all subdirectories\
-                       with <source dir>\*\*')
-    group.add_argument('-c', '--contains', dest='contains', metavar='string',
-                       nargs='+', required=False,
-                       help='skips all directories that match the given\
-                       fnmatch expression')
-    group.add_argument('-d', '--delete', metavar='path', nargs='+',
-                       dest='delete_path', required=False,
-                       help='remove the specified source and destination\
-                       directories from the backup.lst file')
-    group.add_argument('-r', '--restore', metavar='path', nargs='*',
-                       dest='restore', required=False, help='restore selected\
-                       files to their original folders. can give full file\
-                       path or just the file name. leave blank to restore\
-                       all.')
-    group.add_argument('-n', '--adb', '--android', nargs='+',
-                       dest='adb', metavar='path', required=False,
-                       help='backs up the connected android device to the\
-                       given folder. defaults to copying from /sdcard/, but\
-                       can optionally specify source folder as a second\
-                       argument.')
+                       help='performs a backup for all path specified in the backup.lst file')
+    group.add_argument('-s', '--skip', dest='skip', metavar='string', nargs='+', required=False,
+                       help='skips all directories that match the given fnmatch expression, e.g. skip all\
+                       subdirectories with <source dir>\*\*')
+    group.add_argument('-c', '--contains', dest='contains', metavar='string', nargs='+', required=False,
+                       help='skips all directories that match the given fnmatch expression')
+    group.add_argument('-d', '--delete', metavar='path', nargs='+', dest='delete_path', required=False,
+                       help='remove the specified source and destination directories from the backup.lst file')
+    group.add_argument('-r', '--restore', metavar='path', nargs='*', dest='restore', required=False,
+                       help='restore selected files to their original folders. can give full file\
+                       path or just the file name. leave blank to restore all.')
+    group.add_argument('-n', '--adb', '--android', nargs='+', dest='adb', metavar='path', required=False,
+                       help='backs up the connected android device to the given folder. defaults to copying from\
+                       /sdcard/, but can optionally specify source folder as a second argument.')
     return vars(parser.parse_args())
+
 
 if __name__ == '__main__':
     start = datetime.now()
@@ -977,17 +998,13 @@ if __name__ == '__main__':
     elif args['add_path']:
         new_args = handle_arg_spaces(args['add_path'])
         if len(new_args) > 1:
-            add_directory(
-                CONFIG_FILE, new_args[0], new_args[1]
-            )
+            add_directory(CONFIG_FILE, new_args[0], new_args[1])
         else:
             logger.error('Two valid paths not given')
     elif args['delete_path']:
         new_args = handle_arg_spaces(args['delete_path'])
         if len(new_args) > 1:
-            delete_directory(
-                CONFIG_FILE, new_args[0], new_args[1]
-            )
+            delete_directory(CONFIG_FILE, new_args[0], new_args[1])
         else:
             logger.error('Two valid paths not given')
     elif args['skip']:
@@ -1008,7 +1025,7 @@ if __name__ == '__main__':
         perform_restore(backup_dirs, args['restore'])
     else:
         print "please specify a program option.\n" + \
-            "invoke with --help for futher information."
+              "invoke with --help for futher information."
 
     if args['backup'] or args['restore'] or args['adb']:
         print ''

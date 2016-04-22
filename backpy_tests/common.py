@@ -9,7 +9,6 @@ import unittest
 from shutil import (
     copy2,
     copytree,
-    rmtree,
 )
 
 
@@ -20,6 +19,7 @@ class BackpyTest(unittest.TestCase):
     dest_root = ''
     src_root = ''
     do_restore = False
+    timestamp = 1000
 
     @classmethod
     def setUpClass(cls):
@@ -35,14 +35,8 @@ class BackpyTest(unittest.TestCase):
         cls.temp_dir = os.path.join(tempfile.gettempdir(), 'backpy')
         if not os.path.exists(cls.temp_dir):
             os.mkdir(cls.temp_dir)
-        res_dir = os.path.join(cls.temp_dir, 'resources')
-        if os.path.exists(res_dir):
-            rmtree(cls.temp_dir, ignore_errors=True)
         cls.src_root = os.path.join(cls.temp_dir, 'resources', 'source_files')
         cls.dest_root = os.path.join(cls.temp_dir, 'resources', 'dest_files')
-
-        # copy resources
-        copytree(os.path.join(cls.working_dir, 'resources'), res_dir)
 
     @classmethod
     def tearDownClass(cls):
@@ -54,11 +48,26 @@ class BackpyTest(unittest.TestCase):
             os.unlink(backpy.CONFIG_FILE)
             os.rename(cls.config_backup, backpy.CONFIG_FILE)
 
+    @classmethod
+    def mock_timestamp(cls):
+        # datetime.now is the same for all unit tests, so use an incrementing value instead
+        cls.timestamp += 1
+        return cls.timestamp
+
     def setUp(self):
+        backpy.logger.debug('starting test {}'.format(unittest.TestCase.id(self)))
         # start test with blank config
         if os.path.exists(backpy.CONFIG_FILE):
             os.unlink(backpy.CONFIG_FILE)
         backpy.init(backpy.CONFIG_FILE)
+
+        # and blank resource dir
+        res_dir = os.path.join(self.temp_dir, 'resources')
+        if os.path.exists(res_dir):
+            backpy.delete_temp_files(res_dir)
+
+        # copy resources
+        copytree(os.path.join(self.working_dir, 'resources'), res_dir)
 
     # source dir - rel_path is just to test users adding relative path to
     # config file. should mostly use abs path (the files that were copied
@@ -77,9 +86,7 @@ class BackpyTest(unittest.TestCase):
         else:
             src = os.path.join(self.src_root, 'six seven')
         dest = os.path.join(self.dest_root, 'six seven')
-        backpy.add_directory(
-            backpy.CONFIG_FILE, os.path.join(self.working_dir, src), dest
-        )
+        backpy.add_directory(backpy.CONFIG_FILE, src, dest)
 
     def text_in_file(self, filename, text):
         with open(filename) as l:
