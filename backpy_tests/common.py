@@ -4,7 +4,6 @@
 import backpy
 import glob
 import os
-import tempfile
 import unittest
 from shutil import (
     copy2,
@@ -14,8 +13,7 @@ from shutil import (
 
 class BackpyTest(unittest.TestCase):
     config_backup = os.path.expanduser('~/.backpy.orig')
-    working_dir = '.'
-    temp_dir = ''
+    project_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     dest_root = ''
     src_root = ''
     do_restore = False
@@ -32,11 +30,10 @@ class BackpyTest(unittest.TestCase):
                 os.rename(backpy.CONFIG_FILE, cls.config_backup)
 
         # set backup dirs
-        cls.temp_dir = os.path.join(tempfile.gettempdir(), 'backpy')
-        if not os.path.exists(cls.temp_dir):
-            os.mkdir(cls.temp_dir)
-        cls.src_root = os.path.join(cls.temp_dir, 'resources', 'source_files')
-        cls.dest_root = os.path.join(cls.temp_dir, 'resources', 'dest_files')
+        if not os.path.exists(backpy.TEMP_DIR):
+            os.mkdir(backpy.TEMP_DIR)
+        cls.src_root = os.path.join(backpy.TEMP_DIR, 'resources', 'source_files')
+        cls.dest_root = os.path.join(backpy.TEMP_DIR, 'resources', 'dest_files')
 
     @classmethod
     def tearDownClass(cls):
@@ -62,19 +59,19 @@ class BackpyTest(unittest.TestCase):
         backpy.init(backpy.CONFIG_FILE)
 
         # and blank resource dir
-        res_dir = os.path.join(self.temp_dir, 'resources')
+        res_dir = os.path.join(backpy.TEMP_DIR, 'resources')
         if os.path.exists(res_dir):
             backpy.delete_temp_files(res_dir)
 
         # copy resources
-        copytree(os.path.join(self.working_dir, 'resources'), res_dir)
+        copytree(os.path.join(self.project_dir, 'resources'), res_dir)
 
     # source dir - rel_path is just to test users adding relative path to
     # config file. should mostly use abs path (the files that were copied
     # to temp folder) so files can be altered if needed
     def add_one_folder(self, rel_path=False):
         if rel_path:
-            src = os.path.join(self.working_dir, 'resources', 'source_files', 'one')
+            src = os.path.join(self.project_dir, 'resources', 'source_files', 'one')
         else:
             src = os.path.join(self.src_root, 'one')
         dest = os.path.join(self.dest_root, 'one')
@@ -82,7 +79,7 @@ class BackpyTest(unittest.TestCase):
 
     def add_six_seven_folder(self, rel_path=False):
         if rel_path:
-            src = os.path.join(self.working_dir, 'resources', 'source_files', 'six seven')
+            src = os.path.join(self.project_dir, 'resources', 'source_files', 'six seven')
         else:
             src = os.path.join(self.src_root, 'six seven')
         dest = os.path.join(self.dest_root, 'six seven')
@@ -92,6 +89,11 @@ class BackpyTest(unittest.TestCase):
         with open(filename) as l:
             config_contents = l.read()
             return text in config_contents
+
+    def get_last_line(self, filename):
+        with open(filename, 'r') as f:
+            lines = f.read().strip().split('\n')
+        return lines[-1] if lines else ''
 
     def get_file_size(self, filename):
         size = 0

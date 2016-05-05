@@ -35,19 +35,22 @@ import stat
 import subprocess
 import sys
 import tarfile
+import tempfile
 from argparse import ArgumentParser
 from contextlib import closing
 from datetime import datetime
 from hashlib import md5
+from shutil import rmtree
 
 __author__ = 'Steffen Schneider'
-__version__ = '1.3.1'
+__version__ = '1.4'
 __copyright__ = 'Simplified BSD license'
 
 ROOT_PATH = os.path.abspath(os.sep)
 CONFIG_FILE = os.path.expanduser('~/.backpy')
 logger = logging.getLogger('backpy')
 LOG_FILE = os.path.expanduser('~/backpy.log')
+TEMP_DIR = os.path.join(tempfile.gettempdir(), 'backpy')
 
 # android backup mode
 adb = False
@@ -71,7 +74,7 @@ class FileIndex:
         if exclusion_rules is None:
             exclusion_rules = []
         self.__files__ = dict()
-        self.__dirs__ = []
+        self.__dirs__ = [path]
         self.__path__ = path
         self.__exclusion_rules__ = exclusion_rules
         # suppress warning when reading an existing index
@@ -128,6 +131,9 @@ class FileIndex:
     def files(self):
         return self.__files__.keys()
 
+    def dirs(self):
+        return self.__dirs__
+
     def skips(self):
         return self.__exclusion_rules__
 
@@ -136,10 +142,13 @@ class FileIndex:
             return self.__files__[f] if f in self.__files__ else None
         else:
             index = get_filename_index(f, self.__files__)
-            return self.hash(self.files()[index]) if index else None
+            return None if index is None else self.hash(self.files()[index])
 
-    def is_folder(self, f):
-        return list_contains(f, self.__dirs__)
+    def is_folder(self, f, exact_match=True):
+        if exact_match:
+            return list_contains(f, self.__dirs__)
+        else:
+            return get_folder_index(f, self.__dirs__) is not None
 
     def write_index(self, path=None):
         if path is None:
@@ -163,7 +172,7 @@ class FileIndex:
             while line != '# files\n':
                 self.__dirs__.append(line[:len(line) - 1])
                 line = index.readline()
-                # read all files
+            # read all files
             for line in index.readlines():
                 [fname, _hash] = line[:len(line) - 1].split('@@@')
                 self.__files__[fname] = _hash
@@ -178,7 +187,6 @@ class FileIndex:
     def get_missing(self, index=None):
         if not index:
             return []
-
         return filter(lambda x: x not in self.files(), index.files())
 
     def adb_read_folder(self, path):
@@ -239,9 +247,12 @@ class Backup:
     def get_timestamp():
         """
         Static method to allow mocking of timestamp during unit tests
-        :return: currernt time in format 19800101120000
+        :return: current time in format 19800101120000
         """
         return datetime.now().strftime('%Y%m%d%H%M%S')
+
+    def get_index(self):
+        return self.__new_index__
 
     def get_tarpath(self):
         return os.path.join(self.__path__, '%s_backup.tar.gz' % self.__timestamp__)
@@ -256,7 +267,7 @@ class Backup:
         # use closing for python 2.6 compatibility
         with closing(tarfile.open(self.get_tarpath(), 'w:gz')) as tar:
             # write index
-            path = os.path.join('.', '.%s_index' % self.__timestamp__)
+            path = os.path.join(TEMP_DIR, '.%s_index' % self.__timestamp__)
             self.__new_index__.write_index(path)
             tar.add(path, '.index')
             # delete temp index now we've written it
@@ -266,7 +277,7 @@ class Backup:
                 logger.info('adding %s...' % f)
                 if adb:
                     # pull files off phone into temp folder before backing up
-                    temp_path = os.path.join('.', '.%s_adb' % self.__timestamp__)
+                    temp_path = os.path.join(TEMP_DIR, '.%s_adb' % self.__timestamp__)
                     # replace file root with temp path
                     temp_name = (os.path.abspath(temp_path) + f.replace('/', os.sep))
                     try:
@@ -297,37 +308,6 @@ class Backup:
             delete_temp_files(self.get_tarpath())
             logger.warning('no files changed - nothing to back up')
 
-    # def full_recovery(self):
-    #     tar = tarfile.open(os.path.join(
-    #         self.__path__,
-    #         'full/%s_fullbackup.tar.gz' % datetime.now().strftime(
-    #             '%Y%m%d%H%M%S'
-    #         )), 'w:gz')
-    #     backups = all_backups(self.__path__)
-    #     i = 0
-    #     new_queue = []
-    #     queue = self.__new_index__.files()
-    #     while queue and i < len(backups):
-    #         current_backup = read_backup(
-    #             os.path.join(self.__path__, backups[i])
-    #         )
-    #         current_tar = tarfile.open(current_backup.get_tarpath(), 'r:*')
-    #         i += 1
-    #         while queue:
-    #             filename = queue.pop()
-    #             if filename[0] == '/':
-    #                 filename = filename[1:]
-    #             try:
-    #                 member = current_tar.getmember(filename)
-    #                 tar.addfile(member)
-    #             except KeyError:
-    #                 new_queue.append(filename)
-    #         current_tar.close()
-    #         queue = new_queue
-    #         new_queue = []
-    #     tar.close()
-    #     return len(queue)
-
     def contains_file(self, f, exact_match=True):
         """
         Look for a specific file in the index
@@ -338,14 +318,15 @@ class Backup:
         logger.debug('find file %s' % f)
         return self.__new_index__.hash(f, exact_match)
 
-    def contains_folder(self, f):
+    def contains_folder(self, f, exact_match=True):
         """
         Look for a specific folder in the index
         :param f: name of folder
+        :param exact_match: true to match the name exactly, false for partial matches
         :return: true if f is in the index, false if not
         """
         logger.debug('find folder %s' % f)
-        return self.__new_index__.is_folder(f)
+        return self.__new_index__.is_folder(f, exact_match)
 
     def get_missing_files(self):
         """
@@ -355,21 +336,31 @@ class Backup:
         return filter(lambda x: x not in self.__old_index__, self.__new_index__)
 
     def restore_folder(self, folder):
-        # logger.debug('restoring folder %s' % folder)  # TODO
-        pass
-
+        logger.debug('restoring folder %s from %s' % (folder, self.get_tarpath()))
+        fullname = folder
         # get destination dir
-        # index destination dir
-        # diff then restore changed files
+        dest = os.path.dirname(folder)
+        if not dest:
+            # make sure dest and file are full paths
+            index = get_folder_index(folder, self.__new_index__.dirs())
+            if index is None:
+                logger.error('cannot find folder to restore')
+                return
+            fullname = self.__new_index__.dirs()[index]
+            dest = os.path.dirname(fullname)
+        logger.debug('got dest dir %s' % dest)
 
-        # dest = None
-        # for dirs in dirlist:
-        #     if string_equals(dirs[1], os.path.dirname(zip_path)):
-        #         dest = dirs[0]
-        # if dest:
-        #     logger.info(
-        #         'restoring %s from %s to %s' % (folder, zip_path, dest)
-        #     )
+        # index destination dir
+        dest_index = FileIndex(fullname)
+        dest_index.gen_index()
+
+        # restore changed and missing files
+        for dest_file in self.__new_index__.files():
+            if string_startswith(fullname, dest_file) and (
+                dest_index.hash(dest_file) != self.__new_index__.hash(dest_file) or
+                dest_file not in dest_index.files()
+            ):
+                self.restore_file(dest_file)
 
     def restore_file(self, filename):
         logger.debug('restoring file %s from %s' % (filename, self.get_tarpath()))
@@ -379,7 +370,7 @@ class Backup:
         if not dest:
             # make sure dest and file are full paths
             index = get_filename_index(filename, self.__new_index__.files())
-            if not index:
+            if index is None:
                 logger.error('cannot find file to restore')
                 return
             fullname = self.__new_index__.files()[index]
@@ -397,9 +388,13 @@ class Backup:
             logger.debug('file not found')
 
         with closing(tarfile.open(self.get_tarpath(), 'r:*')) as tar:
-            member_name = self.get_member_name(fullname)
+            root_path, member_name = self.get_member_name(fullname)
             logger.info('restoring %s from %s' % (member_name, self.get_tarpath()))
-            tar.extractall(ROOT_PATH, [tar.getmember(member_name)])
+            try:
+                tar.extractall(root_path, [tar.getmember(member_name)])
+            except KeyError:
+                # file may be in index but not backed up as it was unchanged from previous backup
+                logger.info('%s not found in this backup' % os.path.basename(member_name))
 
     @staticmethod
     def get_member_name(name):
@@ -409,12 +404,16 @@ class Backup:
         :return: member name of file
         """
         logger.debug('getting member name for %s' % name)
-        member = name.replace(ROOT_PATH, '')
+        # splitdrive returns ['c:', '\path\to\member'] when we want ['c:\', 'path\to\member']
+        split_member = os.path.splitdrive(name)
+        root = split_member[0] + split_member[1][:1]
+        member = split_member[1][1:]
+
         if os.getenv("OS") == "Windows_NT":
             member = member.replace('\\', '/')
 
-        logger.debug('returning %s' % member)
-        return member
+        logger.debug('returning %s, %s' % (root, member))
+        return root, member
 
 
 def get_file_hash(fullname, size=None, ctime=None):
@@ -459,12 +458,9 @@ def delete_temp_files(path):
         return
 
     if os.path.isdir(path):
-        # directory - delete subfiles and folders then delete it
-        for f in os.listdir(path):
-            delete_temp_files(os.path.join(path, f))
         try:
             os.chmod(path, stat.S_IWUSR)
-            os.rmdir(path)
+            rmtree(path)
         except OSError:
             logger.warning('could not delete %s' % path)
 
@@ -472,7 +468,7 @@ def delete_temp_files(path):
 def read_backup(path):
     logger.debug('reading backup %s' % path)
     timestamp = os.path.basename(path).split('_')[0]
-    temp_path = os.path.join('.', '.%sindex' % timestamp)
+    temp_path = os.path.join(TEMP_DIR, '.%sindex' % timestamp)
     try:
         with closing(tarfile.open(path, 'r:*')) as tar:
             tar.extract('.index', temp_path)
@@ -486,7 +482,7 @@ def read_backup(path):
         return Backup(os.path.dirname(path), index, timestamp=timestamp)
 
 
-def all_backups(path):
+def all_backups(path, reverse_order=True):
     logger.debug('finding previous backups')
     backups = []
     if os.path.isabs(path) is None:
@@ -496,7 +492,7 @@ def all_backups(path):
         for f in files:
             if os.path.basename(f).endswith('.tar.gz'):
                 backups.append(f)
-        backups.sort(reverse=True)
+        backups.sort(reverse=reverse_order)
     return backups
 
 
@@ -508,8 +504,8 @@ def latest_backup(path):
 def string_equals(s1, s2):
     """
     Compare two strings, ignoring case for Windows
-    :param s2: string to compare
     :param s1: string to compare
+    :param s2: string to compare
     :return: true if the strings are equal, false if not
     """
     if os.getenv("OS") == "Windows_NT":
@@ -521,8 +517,8 @@ def string_equals(s1, s2):
 def string_contains(s1, s2):
     """
     Check if one string contains another, ignoring case for Windows
-    :param s2: string to search in
     :param s1: string to search for
+    :param s2: string to search in
     :return: true if s1 is found in s2, false if not
     """
     if os.getenv("OS") == "Windows_NT":
@@ -531,11 +527,24 @@ def string_contains(s1, s2):
     return s1 in s2
 
 
+def string_startswith(s1, s2):
+    """
+    Check if one string starts with another, ignoring case for Windows
+    :param s1: string to search for
+    :param s2: string to search in
+    :return: true if s2 starts with s1, false if not
+    """
+    if os.getenv("OS") == "Windows_NT":
+        s1 = s1.lower()
+        s2 = s2.lower()
+    return s2.startswith(s1)
+
+
 def list_contains(s1, l2):
     """
     Check if list contains string, ignoring case for Windows
-    :param l2: list to search in
     :param s1: string to search for
+    :param l2: list to search in
     :return: true if string is found in list, false if not
     """
     if os.getenv("OS") == "Windows_NT":
@@ -548,8 +557,8 @@ def get_filename_index(s1, l2):
     """
     Get index for filename in list, ignoring case for Windows and ignoring path.
     Returns None if not found
-    :param l2: list to search in
     :param s1: name of file
+    :param l2: list to search in
     :return: index number of file or None if not found
     """
     if os.getenv("OS") == "Windows_NT":
@@ -559,6 +568,25 @@ def get_filename_index(s1, l2):
         return map(os.path.basename, l2).index(s1)
     except ValueError:
         return None
+
+
+def get_folder_index(s1, l2):
+    """
+    Get index for folder in list, ignoring case for Windows.
+    Returns longest path possible, or None if not found
+    :param s1: name of folder
+    :param l2: list to search in
+    :return: index number of folder or None if not found
+    """
+    if os.getenv("OS") == "Windows_NT":
+        s1 = s1.lower()
+        l2 = map(str.lower, l2)
+    while l2 != map(os.path.dirname, l2):
+        try:
+            return map(os.path.basename, l2).index(s1)
+        except ValueError:
+            l2 = map(os.path.dirname, l2)
+    return None
 
 
 def get_config_index(dirlist, src, dest):
@@ -594,7 +622,6 @@ def read_directory_list(path):
 
 def write_directory_list(path, dirlist):
     logger.debug('writing directories to config')
-    # TODO write 3x file separators for windows
     with open(path, "w+") as l:
         for line in dirlist:
             l.write(','.join(line) + '\n')
@@ -643,19 +670,25 @@ def add_directory(path, src, dest):
         return
     if not os.path.exists(dest):
         logger.warning('destination path %s not found, creating directory' % dest)
-        try:
-            if os.path.pardir in dest:
-                os.mkdir(dest)
-            else:
-                # best to use recursive make dir, but
-                # only works if dest does not contain pardir (..)
-                os.makedirs(dest)
-        except OSError:
-            logger.error('could not create directory')
+        make_directory(dest)
+        if not os.path.exists(dest):
+            # make directory failed
             return
 
     dirs.append([src, dest])
     write_directory_list(path, dirs)
+
+
+def make_directory(path):
+    try:
+        if os.path.pardir in path:
+            os.mkdir(path)
+        else:
+            # best to use recursive make dir, but
+            # only works if dest does not contain pardir (..)
+            os.makedirs(path)
+    except OSError:
+        logger.error('could not create directory')
 
 
 def delete_directory(path, src, dest):
@@ -761,7 +794,6 @@ def search_backup(path, filename, files, folders, exact_match=True):
     """
     logger.debug('searching %s (exact=%s)' % (path, exact_match))
     last_hash = None
-    last_backup = None
     # we don't know if user has entered a file or a folder, so search both
     for zip_path in all_backups(path):
         this_backup = read_backup(os.path.join(path, zip_path))
@@ -769,24 +801,25 @@ def search_backup(path, filename, files, folders, exact_match=True):
         this_hash = this_backup.contains_file(filename, exact_match)
         if this_hash or last_hash:
             if this_hash != last_hash:
-                # hash has changed, so if there is a previous hash,
-                # add the previous backup
-                logger.debug('hash %s' % this_hash)
-                if last_hash:
-                    logger.debug('hash changed, adding last backup')
-                    files.append(last_backup)
+                # hash has changed, so add the backup
+                logger.debug('hash %s changed, adding backup' % this_hash)
+                files.append(this_backup)
                 last_hash = this_hash
 
         # also see if filename matches any of the folders in this backup
-        # TODO partial match of folder name
-        if this_backup.contains_folder(filename):
+        if this_backup.contains_folder(filename, exact_match):
             logger.debug('folder found, adding backup to list')
             folders.append(this_backup)
 
-        last_backup = this_backup
 
-
-def find_file_in_backup(dirlist, filename):
+def find_file_in_backup(dirlist, filename, index=None):
+    """
+    Look through all previous backups to find files or folders to restore
+    :param dirlist: list of source/destination pairs to search through (taken from config file)
+    :param filename: file or folder name to search for. can be full path or just part of the name
+    :param index: used for unit testing. when multiple versions of a file are available, automatically
+    pick a specific backup. if not given, the user will be prompted for the version to restore
+    """
     files = []
     folders = []
     searched = []
@@ -800,7 +833,7 @@ def find_file_in_backup(dirlist, filename):
                 if string_equals(dirs[0], filename):
                     logger.debug('restoring all backups from %s' % dirs[0])
                     for zip_path in all_backups(dirs[1]):
-                        read_backup(zip_path).restore_folder(filename)
+                        read_backup(os.path.join(dirs[1], zip_path)).restore_folder(filename)
                     return
 
             if 1 == attempt:
@@ -817,13 +850,12 @@ def find_file_in_backup(dirlist, filename):
                     search_backup(dirs[1], filename, files, folders)
 
             if 3 == attempt:
-                # then look again in case partial path given
+                # then look in all folders again in case partial path given
                 logger.debug('looking for partial match in %s' % dirs[1])
                 search_backup(dirs[1], filename, files, folders, exact_match=False)
 
         # found something, restore it and return
         if files:
-            index = 0
             # select version to restore
             if len(files) > 1:
                 logger.info('multiple versions of %s found:' % filename)
@@ -831,26 +863,25 @@ def find_file_in_backup(dirlist, filename):
                 for backup in files:
                     logger.info('[%s] %s' % (count, backup.get_tarpath()))
                     count += 1
-                logger.info(
-                    'please choose a version to restore '
-                    '(leave blank to cancel):'
-                )
-                chosen = ''
-                try:
-                    chosen = raw_input()
-                    if not chosen:
-                        return  # user has cancelled restore
-                    index = int(chosen) - 1
-                    logger.debug('index=%s' % index)
-                    # now check index is valid
-                    if index < 0:
-                        raise IndexError
-                    _ = files[index]  # noqa
-                except (TypeError, IndexError, ValueError):
-                    logger.error('"%s" is not a valid choice' % chosen)
-                    return
-
-            files[index].restore_file(filename)
+                if index is None:
+                    chosen = ''
+                    try:
+                        chosen = raw_input('please choose a version to restore (leave blank to cancel):')
+                        if not chosen:
+                            return  # user has cancelled restore
+                        index = int(chosen) - 1
+                        logger.debug('index=%s' % index)
+                        # now check index is valid
+                        if index < 0 or index >= len(files):
+                            raise IndexError
+                    except (TypeError, IndexError, ValueError):
+                        logger.error('"%s" is not a valid choice' % chosen)
+                        return
+            try:
+                files[index].restore_file(filename)
+            except IndexError:
+                logger.error('index %s is not valid' % index)
+                return
         elif folders:
             # restore all folders, oldest first
             # (should have been discovered in date order)
@@ -865,17 +896,25 @@ def find_file_in_backup(dirlist, filename):
     logger.warning('%s not found' % filename)
 
 
-def perform_restore(dirlist, files):
+def perform_restore(dirlist, files=None, chosen_index=None):
     if not files:
-        # doing restore all
-        logger.warning('restore all not implemented')  # TODO
-        # for file in dirlist:
-        #     logger.info('  %s' % file[0])
+        if chosen_index:
+            logger.warning('restoring all files, chosen index will be reset to 0')
+        for dirs in dirlist:
+            # restore each file present at time of last backup
+            latest = latest_backup(dirs[1])
+            for f in latest.get_index().files():
+                find_file_in_backup([dirs], f, 0)
 
-    for f in files:
-        # restoring individual files/folders
-        logger.debug('looking for %s' % f)
-        find_file_in_backup(dirlist, os.path.normpath(f))
+            # check all folders are present (i.e. empty folders)
+            for f in latest.get_index().dirs():
+                if not os.path.exists(f):
+                    make_directory(f)
+    else:
+        for f in files:
+            # restoring individual files/folders
+            logger.debug('looking for %s' % f)
+            find_file_in_backup(dirlist, os.path.normpath(f), chosen_index)
 
 
 def set_log_path(log_path):
@@ -884,7 +923,6 @@ def set_log_path(log_path):
 
 
 def set_up_logging(level=1):
-    global LOG_FILE
     # remove existing handlers and add them again
     for h in list(logger.handlers):
         logger.removeHandler(h)
@@ -898,9 +936,7 @@ def set_up_logging(level=1):
     # kill console output (i.e. during unit tests)
     if 0 != level:
         logger.addHandler(sh)
-    fh = logging.handlers.RotatingFileHandler(
-        LOG_FILE, maxBytes=1000000, backupCount=3
-    )
+    fh = logging.handlers.RotatingFileHandler(LOG_FILE, maxBytes=1000000, backupCount=3)
     fh.setLevel(logging.DEBUG)
     ff = logging.Formatter('%(asctime)s: %(levelname)s: %(name)s: %(message)s')
     fh.setFormatter(ff)

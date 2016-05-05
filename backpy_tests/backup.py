@@ -130,7 +130,7 @@ class BackupTest(common.BackpyTest):
     def testAddNewFileAndBackup(self):
         # do backup
         for directory in backpy.read_directory_list(backpy.CONFIG_FILE):
-            backpy.perform_backup(directory)
+            backpy.perform_backup(directory, self.mock_timestamp())
 
         # create new file
         with open(os.path.join(self.src_root, 'six seven', 'eleven'), 'a') as f:
@@ -150,7 +150,7 @@ class BackupTest(common.BackpyTest):
     def testAddNewFolderAndBackup(self):
         # do backup
         for directory in backpy.read_directory_list(backpy.CONFIG_FILE):
-            backpy.perform_backup(directory)
+            backpy.perform_backup(directory, self.mock_timestamp())
 
         # create a new folder and file
         os.mkdir(os.path.join(self.src_root, 'six seven', 'twelve'))
@@ -171,7 +171,7 @@ class BackupTest(common.BackpyTest):
     def testDeleteFolderAndBackup(self):
         # do backup
         for directory in backpy.read_directory_list(backpy.CONFIG_FILE):
-            backpy.perform_backup(directory)
+            backpy.perform_backup(directory, self.mock_timestamp())
 
         # create a new folder and file
         os.mkdir(os.path.join(self.src_root, 'six seven', 'twelve'))
