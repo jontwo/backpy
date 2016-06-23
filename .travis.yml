@@ -1,0 +1,12 @@
+language: python
+python:
+	- "2.7"
+	- "2.6"
+
+install:
+	- "python setup.py install"
+
+script:
+	- "backpy_tests/config_file.py"
+	- "backpy_tests/backup.py"
+	- "backpy_tests/restore.py"
