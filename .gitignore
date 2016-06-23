@@ -1,0 +1,10 @@
+.*index
+.idea
+build/*
+dist/*
+backpy.egg-info/*
+*.pyc
+*.orig
+resources/dest_files/.backpy  
+.coverage
+coverage_*
