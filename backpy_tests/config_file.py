@@ -106,9 +106,6 @@ class ConfigTest(common.BackpyTest):
         self.assertGreater(size_after, size_before)
         self.assertTrue(self.text_in_file(backpy.CONFIG_FILE, src))
         
-    def testFail(self):
-        self.assertTrue(False)
-
 if __name__ == '__main__':
     suite = unittest.TestLoader().loadTestsFromTestCase(ConfigTest)
     unittest.TextTestRunner(verbosity=2).run(suite)
