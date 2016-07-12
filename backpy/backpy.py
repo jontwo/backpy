@@ -31,7 +31,6 @@ import logging
 import logging.handlers
 import os
 import re
-import stat
 import subprocess
 import sys
 import tarfile
@@ -451,7 +450,7 @@ def delete_temp_files(path):
     if os.path.isfile(path):
         # single file - delete it and return
         try:
-            os.chmod(path, stat.S_IWUSR)
+            os.chmod(path, 0o777)
             os.unlink(path)
         except OSError:
             logger.warning('could not delete %s' % path)
@@ -459,7 +458,7 @@ def delete_temp_files(path):
 
     if os.path.isdir(path):
         try:
-            os.chmod(path, stat.S_IWUSR)
+            os.chmod(path, 0o777)
             rmtree(path)
         except OSError:
             logger.warning('could not delete %s' % path)

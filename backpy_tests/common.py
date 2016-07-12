@@ -31,7 +31,7 @@ class BackpyTest(unittest.TestCase):
 
         # set backup dirs
         if not os.path.exists(backpy.TEMP_DIR):
-            os.mkdir(backpy.TEMP_DIR)
+            os.mkdir(backpy.TEMP_DIR, 0o777)
         cls.src_root = os.path.join(backpy.TEMP_DIR, 'resources', 'source_files')
         cls.dest_root = os.path.join(backpy.TEMP_DIR, 'resources', 'dest_files')
 
@@ -65,7 +65,7 @@ class BackpyTest(unittest.TestCase):
 
         # copy resources
         copytree(os.path.join(self.project_dir, 'resources'), res_dir)
-
+        
     # source dir - rel_path is just to test users adding relative path to
     # config file. should mostly use abs path (the files that were copied
     # to temp folder) so files can be altered if needed
