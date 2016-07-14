@@ -435,7 +435,7 @@ def get_file_hash(fullname, size=None, ctime=None):
         try:
             with open(fullname) as f:
                 md5hash = md5(f.read())
-        except IOError:
+        except (IOError, MemoryError):
             logger.warning('could not process file: %s' % fullname)
 
     return ''.join(['%x' % ord(h) for h in md5hash.digest()]) if md5hash else None
