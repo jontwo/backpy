@@ -42,7 +42,7 @@ from hashlib import md5
 from shutil import rmtree
 
 __author__ = 'Steffen Schneider'
-__version__ = '1.4'
+__version__ = '1.4.1'
 __copyright__ = 'Simplified BSD license'
 
 ROOT_PATH = os.path.abspath(os.sep)
@@ -104,11 +104,11 @@ class FileIndex:
 
     def gen_index(self):
         if adb:
-            logger.debug('generating index of android device')
+            logger.info('generating index of android device')
             self.adb_read_folder(self.__path__)
             return
 
-        logger.debug('generating index')
+        logger.info('generating index of {}'.format(self.__path__))
         for dirname, dirnames, filenames in os.walk(self.__path__):
             if not self.is_valid(dirname):
                 continue
@@ -117,7 +117,7 @@ class FileIndex:
                 if self.is_valid(fullpath):
                     self.__dirs__.append(fullpath)
                 else:
-                    logger.info('skipping directory: %s' % fullpath)
+                    logger.debug('skipping directory: %s' % fullpath)
             for filename in filenames:
                 fullname = os.path.join(dirname, filename)
                 if not self.is_valid(fullname):
@@ -497,7 +497,11 @@ def all_backups(path, reverse_order=True):
 
 def latest_backup(path):
     backups = all_backups(path)
-    return read_backup(os.path.join(path, backups[0])) if len(backups) > 0 else None
+    if not backups:
+        return None
+    last_backup = backups[0]
+    logger.info('reading latest backup ({}) for comparison'.format(last_backup))
+    return read_backup(os.path.join(path, last_backup))
 
 
 def string_equals(s1, s2):
