@@ -191,6 +191,60 @@ class BackupTest(common.BackpyTest):
         self.assertEqual(zips_in_one, 2)
         self.assertEqual(zips_in_six_seven, 2)
 
+    # 8. do 1 (with a skip), change a file in skipped folder, backup again
+    def testAddSkipAndBackup(self):
+        # add skip
+        skips = []
+        skips.append(os.path.join(self.src_root, 'one'))
+        skips.append(os.path.join(self.dest_root, 'one'))
+        skips.append(os.path.join(self.src_root, 'one', 'four'))
+        backpy.add_skip(backpy.CONFIG_FILE, skips)
+
+        # do backup
+        for directory in backpy.read_directory_list(backpy.CONFIG_FILE):
+            backpy.perform_backup(directory, self.mock_timestamp())
+
+        # change a file
+        with open(os.path.join(self.src_root, 'one', 'four', 'five'), 'a') as f:
+            f.write('some more text\n')
+
+        # do backup
+        for directory in backpy.read_directory_list(backpy.CONFIG_FILE):
+            backpy.perform_backup(directory, self.mock_timestamp())
+
+        # count zips
+        zips_in_one = self.count_files(os.path.join(self.one_folder, '*.tar.gz'))
+        zips_in_six_seven = self.count_files(os.path.join(self.six_seven_folder, '*.tar.gz'))
+        self.assertEqual(zips_in_one, 1)
+        self.assertEqual(zips_in_six_seven, 1)
+
+    # 9. do 1 (with a wildcard skip), change a file in skipped folder, backup again
+    def testAddSkipWithWildcard(self):
+        # add skip
+        skips = []
+        skips.append(os.path.join(self.src_root, 'six seven'))
+        skips.append(os.path.join(self.dest_root, 'six seven'))
+        skips.append('seven')
+        backpy.add_skip(backpy.CONFIG_FILE, skips, True)
+
+        # do backup
+        for directory in backpy.read_directory_list(backpy.CONFIG_FILE):
+            backpy.perform_backup(directory, self.mock_timestamp())
+
+        # change a file
+        with open(os.path.join(self.src_root, 'six seven', 'eight'), 'a') as f:
+            f.write('some more text\n')
+
+        # do backup
+        for directory in backpy.read_directory_list(backpy.CONFIG_FILE):
+            backpy.perform_backup(directory, self.mock_timestamp())
+
+        # count zips
+        zips_in_one = self.count_files(os.path.join(self.one_folder, '*.tar.gz'))
+        zips_in_six_seven = self.count_files(os.path.join(self.six_seven_folder, '*.tar.gz'))
+        self.assertEqual(zips_in_one, 1)
+        self.assertEqual(zips_in_six_seven, 0)
+
 
 if __name__ == '__main__':
     suite = unittest.TestLoader().loadTestsFromTestCase(BackupTest)
