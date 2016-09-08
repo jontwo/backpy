@@ -117,6 +117,7 @@ class FileIndex:
                 if self.is_valid(fullpath):
                     self.__dirs__.append(fullpath)
                 else:
+                    dirnames.remove(subdirname)
                     logger.debug('skipping directory: %s' % fullpath)
             for filename in filenames:
                 fullname = os.path.join(dirname, filename)
