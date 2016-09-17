@@ -42,7 +42,7 @@ from hashlib import md5
 from shutil import rmtree
 
 __author__ = 'Steffen Schneider'
-__version__ = '1.4.1'
+__version__ = '1.4.2'
 __copyright__ = 'Simplified BSD license'
 
 ROOT_PATH = os.path.abspath(os.sep)
@@ -117,6 +117,7 @@ class FileIndex:
                 if self.is_valid(fullpath):
                     self.__dirs__.append(fullpath)
                 else:
+                    dirnames.remove(subdirname)
                     logger.debug('skipping directory: %s' % fullpath)
             for filename in filenames:
                 fullname = os.path.join(dirname, filename)
@@ -1030,6 +1031,8 @@ if __name__ == '__main__':
     set_up_logging(2 if args['verbose'] else 1)
     init(CONFIG_FILE)
     backup_dirs = read_directory_list(CONFIG_FILE)
+    if (args['backup'] or args['restore'] or args['adb']) and not os.path.exists(TEMP_DIR):
+        make_directory(TEMP_DIR)
     if args['show_version']:
         logger.info('Backpy version: %s' % __version__)
     elif args['list']:
