@@ -19,4 +19,7 @@ setup(
     install_requires=['argparse'],
     test_suite='backpy_tests',
     zip_safe=False,
+    author='Jon Morris',
+    author_email='jontwo@users.noreply.github.com',
+    url='https://github.com/jontwo/backpy'
 )
