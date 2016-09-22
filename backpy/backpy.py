@@ -108,7 +108,7 @@ class FileIndex:
             self.adb_read_folder(self.__path__)
             return
 
-        logger.info('generating index of {}'.format(self.__path__))
+        logger.info('generating index of {0}'.format(self.__path__))
         for dirname, dirnames, filenames in os.walk(self.__path__):
             if not self.is_valid(dirname):
                 continue
@@ -501,7 +501,7 @@ def latest_backup(path):
     if not backups:
         return None
     last_backup = backups[0]
-    logger.info('reading latest backup ({}) for comparison'.format(last_backup))
+    logger.info('reading latest backup ({0}) for comparison'.format(last_backup))
     return read_backup(os.path.join(path, last_backup))
 
 
