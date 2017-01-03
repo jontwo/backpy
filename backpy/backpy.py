@@ -800,6 +800,7 @@ def search_backup(path, filename, files, folders, exact_match=True):
     """
     logger.debug('searching %s (exact=%s)' % (path, exact_match))
     last_hash = None
+    last_backup = None
     # we don't know if user has entered a file or a folder, so search both
     for zip_path in all_backups(path):
         this_backup = read_backup(os.path.join(path, zip_path))
@@ -807,15 +808,21 @@ def search_backup(path, filename, files, folders, exact_match=True):
         this_hash = this_backup.contains_file(filename, exact_match)
         if this_hash or last_hash:
             if this_hash != last_hash:
-                # hash has changed, so add the backup
-                logger.debug('hash %s changed, adding backup' % this_hash)
-                files.append(this_backup)
+                if last_hash is not None:
+                    # hash has changed, so add the backup
+                    logger.debug('hash %s changed, adding backup' % last_hash)
+                    files.append(last_backup)
                 last_hash = this_hash
+        last_backup = this_backup
 
         # also see if filename matches any of the folders in this backup
         if this_backup.contains_folder(filename, exact_match):
             logger.debug('folder found, adding backup to list')
             folders.append(this_backup)
+    # check if oldest backup needs to be added
+    if last_hash is not None:
+        logger.debug('hash %s changed, adding backup' % last_hash)
+        files.append(last_backup)
 
 
 def find_file_in_backup(dirlist, filename, index=None):
@@ -883,6 +890,11 @@ def find_file_in_backup(dirlist, filename, index=None):
                     except (TypeError, IndexError, ValueError):
                         logger.error('"%s" is not a valid choice' % chosen)
                         return
+            else:
+                logger.debug('one version of {0} found'.format(filename))
+                if index is not None:
+                    logger.warning('ignoring index {0} and defaulting to 0'.format(index))
+                index = 0
             try:
                 files[index].restore_file(filename)
             except IndexError:
