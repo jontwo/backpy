@@ -42,7 +42,7 @@ from hashlib import md5
 from shutil import rmtree
 
 __author__ = 'Steffen Schneider'
-__version__ = '1.4.2'
+__version__ = '1.4.4'
 __copyright__ = 'Simplified BSD license'
 
 ROOT_PATH = os.path.abspath(os.sep)
@@ -698,7 +698,7 @@ def make_directory(path):
 
 
 def delete_directory(path, src, dest):
-    logger.info('removing entry source: %s, destination: %s' % (src, dest))
+    logger.debug('removing entry source: %s, destination: %s' % (src, dest))
     dirs = read_directory_list(path)
     index = get_config_index(dirs, src, dest)
     if index is None:
@@ -714,8 +714,20 @@ def delete_directory(path, src, dest):
         if index is None:
             logger.error('entry not found')
             return
+    delete_directory_by_index(path, index, dirs)
 
-    del dirs[index]
+
+def delete_directory_by_index(path, index, dirs):
+    if dirs is None:
+        dirs = read_directory_list(path)
+
+    try:
+        answer = raw_input('delete entry source: {0}, destination: {1} (y/n)?'.format(dirs[index][0], dirs[index][1]))
+        if answer.lower() != 'y':
+            return
+        del dirs[index]
+    except IndexError:
+        logger.error('index is invalid')
     write_directory_list(path, dirs)
 
 
@@ -1033,18 +1045,19 @@ def parse_args():
                        stored in the specified destination directory. if relative paths used, the current\
                        working directory will be added.')
     group.add_argument('-b', '--backup', action='store_true', dest='backup',
-                       help='performs a backup for all path specified in the backup.lst file')
+                       help='performs a backup for all paths specified in the backup.lst file')
     group.add_argument('-s', '--skip', dest='skip', metavar='string', nargs='+', required=False,
                        help='skips all directories that match the given fnmatch expression, e.g. skip all\
                        subdirectories with <source dir>\*\*')
     group.add_argument('-c', '--contains', dest='contains', metavar='string', nargs='+', required=False,
                        help='skips all directories that match the given fnmatch expression')
     group.add_argument('-d', '--delete', metavar='path', nargs='+', dest='delete_path', required=False,
-                       help='remove the specified source and destination directories from the backup.lst file')
+                       help='remove the specified source and destination directories from the backup.lst file.\
+                       can also specify directories by index (see list).')
     group.add_argument('-r', '--restore', metavar='path', nargs='*', dest='restore', required=False,
                        help='restore selected files to their original folders. can give full file\
                        path or just the file name. leave blank to restore all. using #n as first argument\
-                       limits the search to just the config entry with the given index.')
+                       limits the search to just the config entry with the given index (see list).')
     group.add_argument('-n', '--adb', '--android', nargs='+', dest='adb', metavar='path', required=False,
                        help='backs up the connected android device to the given folder. defaults to copying from\
                        /sdcard/, but can optionally specify source folder as a second argument.')
@@ -1061,7 +1074,7 @@ if __name__ == '__main__':
     if (args['backup'] or args['restore'] or args['adb']) and not os.path.exists(TEMP_DIR):
         make_directory(TEMP_DIR)
     if args['show_version']:
-        logger.info('Backpy version: %s' % __version__)
+        logger.info('backpy version: %s' % __version__)
     elif args['list']:
         show_directory_list(backup_dirs)
     elif args['add_path']:
@@ -1069,13 +1082,18 @@ if __name__ == '__main__':
         if len(new_args) > 1:
             add_directory(CONFIG_FILE, new_args[0], new_args[1])
         else:
-            logger.error('Two valid paths not given')
+            logger.error('two valid paths not given')
     elif args['delete_path']:
         new_args = handle_arg_spaces(args['delete_path'])
         if len(new_args) > 1:
             delete_directory(CONFIG_FILE, new_args[0], new_args[1])
         else:
-            logger.error('Two valid paths not given')
+            try:
+                index = int(new_args[0])
+                dirs = read_directory_list(CONFIG_FILE)
+                delete_directory_by_index(CONFIG_FILE, index - 1, dirs)
+            except (ValueError, IndexError):
+                logger.error('two valid paths not given or index is invalid')
     elif args['skip']:
         add_skip(CONFIG_FILE, args['skip'])
     elif args['contains']:
