@@ -633,11 +633,13 @@ def write_directory_list(path, dirlist):
 
 def show_directory_list(dirs):
     logger.info('backup directories:')
+    index = 1
     for line in dirs:
         if len(line) < 2:
             logger.error('bad config entry:\n%s' % line)
             return
-        logger.info('from %s to %s' % (line[0], line[1]))
+        logger.info('[{0}] from {1} to {2}'.format(index, line[0], line[1]))
+        index += 1
         skips = ', '.join(line[2:])
         if skips:
             logger.info('  skipping %s' % skips)
@@ -915,6 +917,18 @@ def perform_restore(dirlist, files=None, chosen_index=None):
                 if not os.path.exists(f):
                     make_directory(f)
     else:
+        # check if first arg is an index
+        match_index = re.match('#(\d+)', files[0])
+        if match_index:
+            try:
+                # remove index from files arg
+                files = files[1:]
+                # reduce dirlist to chosen entry only
+                list_index = int(match_index.group(1))
+                dirlist = [dirlist[list_index - 1]]
+            except (IndexError, TypeError):
+                logger.warning('restore index not valid: {0}'.format(match_index.groups()))
+                return
         for f in files:
             # restoring individual files/folders
             logger.debug('looking for %s' % f)
@@ -1001,7 +1015,7 @@ def parse_args():
     parser.add_argument('--version', action='store_true', dest='show_version', help='show version')
     group = parser.add_mutually_exclusive_group()
     group.add_argument('-l', '--list', dest='list', action='store_true', required=False,
-                       help='list the all the directories currently in the config file')
+                       help='list the all the directories currently in the config file, with index number')
     group.add_argument('-a', '--add', metavar='path', nargs='+', dest='add_path', required=False,
                        help='adds the specified source directory to the backup index. the backups will be\
                        stored in the specified destination directory. if relative paths used, the current\
@@ -1017,7 +1031,8 @@ def parse_args():
                        help='remove the specified source and destination directories from the backup.lst file')
     group.add_argument('-r', '--restore', metavar='path', nargs='*', dest='restore', required=False,
                        help='restore selected files to their original folders. can give full file\
-                       path or just the file name. leave blank to restore all.')
+                       path or just the file name. leave blank to restore all. using #n as first argument\
+                       limits the search to just the config entry with the given index.')
     group.add_argument('-n', '--adb', '--android', nargs='+', dest='adb', metavar='path', required=False,
                        help='backs up the connected android device to the given folder. defaults to copying from\
                        /sdcard/, but can optionally specify source folder as a second argument.')
