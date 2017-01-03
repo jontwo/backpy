@@ -16,7 +16,7 @@ class BackpyTest(unittest.TestCase):
     project_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     dest_root = ''
     src_root = ''
-    do_restore = False
+    restore_config = False
     timestamp = 1000
 
     @classmethod
@@ -24,7 +24,7 @@ class BackpyTest(unittest.TestCase):
         backpy.set_up_logging(0)
         # backup any existing config
         if os.path.exists(backpy.CONFIG_FILE):
-            cls.do_restore = True
+            cls.restore_config = True
             if not os.path.exists(cls.config_backup):
                 backpy.logger.debug('deleting existing config')
                 os.rename(backpy.CONFIG_FILE, cls.config_backup)
@@ -40,7 +40,7 @@ class BackpyTest(unittest.TestCase):
         # keep config for reference
         copy2(backpy.CONFIG_FILE, cls.dest_root)
         # restore config
-        if cls.do_restore:
+        if cls.restore_config:
             backpy.logger.debug('restoring config')
             os.unlink(backpy.CONFIG_FILE)
             os.rename(cls.config_backup, backpy.CONFIG_FILE)
@@ -65,7 +65,7 @@ class BackpyTest(unittest.TestCase):
 
         # copy resources
         copytree(os.path.join(self.project_dir, 'resources'), res_dir)
-        
+
     # source dir - rel_path is just to test users adding relative path to
     # config file. should mostly use abs path (the files that were copied
     # to temp folder) so files can be altered if needed
@@ -103,3 +103,24 @@ class BackpyTest(unittest.TestCase):
 
     def count_files(self, search_path):
         return len(glob.glob(search_path))
+
+    # backup/restore methods for use in more than one test
+    def do_backup(self):
+        for directory in backpy.read_directory_list(backpy.CONFIG_FILE):
+            backpy.perform_backup(directory, self.mock_timestamp())
+
+    # add text to a file
+    def change_one_four_five(self, text):
+        with open(os.path.join(self.src_root, 'one', 'four', 'five'), 'a') as f:
+            f.write('{0}\n'.format(text))
+
+    # delete a file
+    def delete_one_four_five(self):
+        os.unlink(os.path.join(self.src_root, 'one', 'four', 'five'))
+
+    # delete a folder
+    def delete_six_seven(self):
+        backpy.delete_temp_files(os.path.join(self.src_root, 'six seven'))
+
+    def do_restore(self, files=None, chosen_index=None):
+        backpy.perform_restore(backpy.read_directory_list(backpy.CONFIG_FILE), files, chosen_index)

@@ -33,9 +33,7 @@ class BackupTest(common.BackpyTest):
 
     # 1. perform backup into an empty destination folder
     def testInitialBackup(self):
-        # do backup
-        for directory in backpy.read_directory_list(backpy.CONFIG_FILE):
-            backpy.perform_backup(directory, self.mock_timestamp())
+        self.do_backup()
 
         # count zips
         zips_in_one = self.count_files(os.path.join(self.one_folder, '*.tar.gz'))
@@ -45,17 +43,9 @@ class BackupTest(common.BackpyTest):
 
     # 2. do 1, change a file, backup again
     def testSecondBackup(self):
-        # do backup
-        for directory in backpy.read_directory_list(backpy.CONFIG_FILE):
-            backpy.perform_backup(directory, self.mock_timestamp())
-
-        # change a file
-        with open(os.path.join(self.src_root, 'one', 'four', 'five'), 'a') as f:
-            f.write('some more text\n')
-
-        # do backup
-        for directory in backpy.read_directory_list(backpy.CONFIG_FILE):
-            backpy.perform_backup(directory, self.mock_timestamp())
+        self.do_backup()
+        self.change_one_four_five('some more text')
+        self.do_backup()
 
         # count zips
         zips_in_one = self.count_files(os.path.join(self.one_folder, '*.tar.gz'))
@@ -65,25 +55,11 @@ class BackupTest(common.BackpyTest):
 
     # 3. do 2, change a file, backup again
     def testThirdBackup(self):
-        # do backup
-        for directory in backpy.read_directory_list(backpy.CONFIG_FILE):
-            backpy.perform_backup(directory, self.mock_timestamp())
-
-        # change a file
-        with open(os.path.join(self.src_root, 'one', 'four', 'five'), 'a') as f:
-            f.write('some more text\n')
-
-        # do backup
-        for directory in backpy.read_directory_list(backpy.CONFIG_FILE):
-            backpy.perform_backup(directory, self.mock_timestamp())
-
-        # change a file
-        with open(os.path.join(self.src_root, 'one', 'four', 'five'), 'a') as f:
-            f.write('yet more text\n')
-
-        # do backup
-        for directory in backpy.read_directory_list(backpy.CONFIG_FILE):
-            backpy.perform_backup(directory, self.mock_timestamp())
+        self.do_backup()
+        self.change_one_four_five('some more text')
+        self.do_backup()
+        self.change_one_four_five('yet more text')
+        self.do_backup()
 
         # count zips
         zips_in_one = self.count_files(os.path.join(self.one_folder, '*.tar.gz'))
@@ -93,32 +69,16 @@ class BackupTest(common.BackpyTest):
 
     # 4. do 3, delete the file, backup again
     def testDeleteFileAndBackup(self):
-        # do backup
-        for directory in backpy.read_directory_list(backpy.CONFIG_FILE):
-            backpy.perform_backup(directory, self.mock_timestamp())
-
-        # change a file
-        with open(os.path.join(self.src_root, 'one', 'four', 'five'), 'a') as f:
-            f.write('some more text\n')
-
-        # do backup
-        for directory in backpy.read_directory_list(backpy.CONFIG_FILE):
-            backpy.perform_backup(directory, self.mock_timestamp())
-
-        # change a file
-        with open(os.path.join(self.src_root, 'one', 'four', 'five'), 'a') as f:
-            f.write('yet more text\n')
-
-        # do backup
-        for directory in backpy.read_directory_list(backpy.CONFIG_FILE):
-            backpy.perform_backup(directory, self.mock_timestamp())
+        self.do_backup()
+        self.change_one_four_five('some more text')
+        self.do_backup()
+        self.change_one_four_five('yet more text')
+        self.do_backup()
 
         # delete file
         os.unlink(os.path.join(self.src_root, 'one', 'four', 'five'))
 
-        # do backup
-        for directory in backpy.read_directory_list(backpy.CONFIG_FILE):
-            backpy.perform_backup(directory, self.mock_timestamp())
+        self.do_backup()
 
         # count zips
         zips_in_one = self.count_files(os.path.join(self.one_folder, '*.tar.gz'))
@@ -128,17 +88,13 @@ class BackupTest(common.BackpyTest):
 
     # 5. do 1, add a new file, backup again
     def testAddNewFileAndBackup(self):
-        # do backup
-        for directory in backpy.read_directory_list(backpy.CONFIG_FILE):
-            backpy.perform_backup(directory, self.mock_timestamp())
+        self.do_backup()
 
         # create new file
         with open(os.path.join(self.src_root, 'six seven', 'eleven'), 'a') as f:
             f.write('new file\n')
 
-        # do backup
-        for directory in backpy.read_directory_list(backpy.CONFIG_FILE):
-            backpy.perform_backup(directory, self.mock_timestamp())
+        self.do_backup()
 
         # count zips
         zips_in_one = self.count_files(os.path.join(self.one_folder, '*.tar.gz'))
@@ -148,18 +104,14 @@ class BackupTest(common.BackpyTest):
 
     # 6. do 1, add a folder, backup again
     def testAddNewFolderAndBackup(self):
-        # do backup
-        for directory in backpy.read_directory_list(backpy.CONFIG_FILE):
-            backpy.perform_backup(directory, self.mock_timestamp())
+        self.do_backup()
 
         # create a new folder and file
         os.mkdir(os.path.join(self.src_root, 'six seven', 'twelve'))
         with open(os.path.join(self.src_root, 'six seven', 'twelve', 'eleven'), 'a') as f:
             f.write('new file\n')
 
-        # do backup
-        for directory in backpy.read_directory_list(backpy.CONFIG_FILE):
-            backpy.perform_backup(directory, self.mock_timestamp())
+        self.do_backup()
 
         # count zips
         zips_in_one = self.count_files(os.path.join(self.one_folder, '*.tar.gz'))
@@ -169,9 +121,7 @@ class BackupTest(common.BackpyTest):
 
     # 7. do 6, delete a different folder, backup again
     def testDeleteFolderAndBackup(self):
-        # do backup
-        for directory in backpy.read_directory_list(backpy.CONFIG_FILE):
-            backpy.perform_backup(directory, self.mock_timestamp())
+        self.do_backup()
 
         # create a new folder and file
         os.mkdir(os.path.join(self.src_root, 'six seven', 'twelve'))
@@ -181,9 +131,7 @@ class BackupTest(common.BackpyTest):
         # delete a folder
         backpy.delete_temp_files(os.path.join(self.src_root, 'one', 'four'))
 
-        # do backup
-        for directory in backpy.read_directory_list(backpy.CONFIG_FILE):
-            backpy.perform_backup(directory, self.mock_timestamp())
+        self.do_backup()
 
         # count zips
         zips_in_one = self.count_files(os.path.join(self.one_folder, '*.tar.gz'))
@@ -200,17 +148,9 @@ class BackupTest(common.BackpyTest):
         skips.append(os.path.join(self.src_root, 'one', 'four'))
         backpy.add_skip(backpy.CONFIG_FILE, skips)
 
-        # do backup
-        for directory in backpy.read_directory_list(backpy.CONFIG_FILE):
-            backpy.perform_backup(directory, self.mock_timestamp())
-
-        # change a file
-        with open(os.path.join(self.src_root, 'one', 'four', 'five'), 'a') as f:
-            f.write('some more text\n')
-
-        # do backup
-        for directory in backpy.read_directory_list(backpy.CONFIG_FILE):
-            backpy.perform_backup(directory, self.mock_timestamp())
+        self.do_backup()
+        self.change_one_four_five('some more text')
+        self.do_backup()
 
         # count zips
         zips_in_one = self.count_files(os.path.join(self.one_folder, '*.tar.gz'))
@@ -227,17 +167,13 @@ class BackupTest(common.BackpyTest):
         skips.append('seven')
         backpy.add_skip(backpy.CONFIG_FILE, skips, True)
 
-        # do backup
-        for directory in backpy.read_directory_list(backpy.CONFIG_FILE):
-            backpy.perform_backup(directory, self.mock_timestamp())
+        self.do_backup()
 
         # change a file
         with open(os.path.join(self.src_root, 'six seven', 'eight'), 'a') as f:
             f.write('some more text\n')
 
-        # do backup
-        for directory in backpy.read_directory_list(backpy.CONFIG_FILE):
-            backpy.perform_backup(directory, self.mock_timestamp())
+        self.do_backup()
 
         # count zips
         zips_in_one = self.count_files(os.path.join(self.one_folder, '*.tar.gz'))
