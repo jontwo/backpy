@@ -42,7 +42,7 @@ from hashlib import md5
 from shutil import rmtree
 
 __author__ = 'Steffen Schneider'
-__version__ = '1.4.2'
+__version__ = '1.4.3'
 __copyright__ = 'Simplified BSD license'
 
 ROOT_PATH = os.path.abspath(os.sep)
