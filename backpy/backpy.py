@@ -697,7 +697,7 @@ def make_directory(path):
         logger.error('could not create directory')
 
 
-def delete_directory(path, src, dest):
+def delete_directory(path, src, dest, confirm=True):
     logger.debug('removing entry source: %s, destination: %s' % (src, dest))
     dirs = read_directory_list(path)
     index = get_config_index(dirs, src, dest)
@@ -714,17 +714,18 @@ def delete_directory(path, src, dest):
         if index is None:
             logger.error('entry not found')
             return
-    delete_directory_by_index(path, index, dirs)
+    delete_directory_by_index(path, index, dirs, confirm)
 
 
-def delete_directory_by_index(path, index, dirs):
+def delete_directory_by_index(path, index, dirs, confirm=True):
     if dirs is None:
         dirs = read_directory_list(path)
 
     try:
-        answer = raw_input('delete entry source: {0}, destination: {1} (y/n)?'.format(dirs[index][0], dirs[index][1]))
-        if answer.lower() != 'y':
-            return
+        if confirm:
+            answer = raw_input('delete entry source: {0}, destination: {1} (y/n)?'.format(dirs[index][0], dirs[index][1]))
+            if answer.lower() != 'y':
+                return
         del dirs[index]
     except IndexError:
         logger.error('index is invalid')

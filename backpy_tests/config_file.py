@@ -79,12 +79,40 @@ class ConfigTest(common.BackpyTest):
         src = os.path.join('resources', 'source_files', 'six seven')
         dest = os.path.join(self.dest_root, 'six seven')
         backpy.delete_directory(
-            backpy.CONFIG_FILE, os.path.join(self.project_dir, src), dest
+            backpy.CONFIG_FILE, os.path.join(self.project_dir, src), dest, False
         )
 
         size_after = self.get_file_size(backpy.CONFIG_FILE)
         self.assertLess(size_after, size_before)
         self.assertFalse(self.text_in_file(backpy.CONFIG_FILE, src))
+
+    # try to remove a folder with a valid index
+    def testRemoveFolderByIndex(self):
+        # add some entries to config
+        self.add_one_folder()
+        self.add_six_seven_folder(True)
+
+        size_before = self.get_file_size(backpy.CONFIG_FILE)
+        src = os.path.join('resources', 'source_files', 'six seven')
+        dirlist = backpy.read_directory_list(backpy.CONFIG_FILE)
+        backpy.delete_directory_by_index(backpy.CONFIG_FILE, 1, dirlist, False)
+
+        size_after = self.get_file_size(backpy.CONFIG_FILE)
+        self.assertLess(size_after, size_before)
+        self.assertFalse(self.text_in_file(backpy.CONFIG_FILE, src))
+
+    # try to remove a folder with an invalid index
+    def testRemoveFolderBadIndex(self):
+        # add some entries to config
+        self.add_one_folder()
+        self.add_six_seven_folder(True)
+
+        size_before = self.get_file_size(backpy.CONFIG_FILE)
+        dirlist = backpy.read_directory_list(backpy.CONFIG_FILE)
+        backpy.delete_directory_by_index(backpy.CONFIG_FILE, 2, dirlist, False)
+
+        size_after = self.get_file_size(backpy.CONFIG_FILE)
+        self.assertEqual(size_after, size_before)
 
     # try to add a folder that contains spaces in the name,
     # calling backpy from command line
@@ -105,7 +133,7 @@ class ConfigTest(common.BackpyTest):
         size_after = self.get_file_size(backpy.CONFIG_FILE)
         self.assertGreater(size_after, size_before)
         self.assertTrue(self.text_in_file(backpy.CONFIG_FILE, src))
-        
+
 if __name__ == '__main__':
     suite = unittest.TestLoader().loadTestsFromTestCase(ConfigTest)
     unittest.TextTestRunner(verbosity=2).run(suite)
