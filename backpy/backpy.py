@@ -50,9 +50,6 @@ CONFIG_FILE = os.path.expanduser('~/.backpy')
 logger = logging.getLogger('backpy')
 LOG_FILE = os.path.expanduser('~/backpy.log')
 TEMP_DIR = os.path.join(tempfile.gettempdir(), 'backpy')
-
-# android backup mode
-adb = False
 ANDROID_SKIPS = os.path.expanduser('~/.androidSkipFolders')
 
 
@@ -69,19 +66,22 @@ class SpecialFormatter(logging.Formatter):
 
 
 class FileIndex:
-    def __init__(self, path, exclusion_rules=None, reading=False):
+    def __init__(self, path, exclusion_rules=None, reading=False, adb=False):
         if exclusion_rules is None:
             exclusion_rules = []
         self.__files__ = dict()
         self.__dirs__ = [path]
         self.__path__ = path
         self.__exclusion_rules__ = exclusion_rules
+        self.__adb__ = adb
+        if adb:
+            logger.debug('new FileIndex for {0}, adb=True'.format(path))
         # suppress warning when reading an existing index
         if not reading and not self.is_valid(path):
             logger.warning('root dir %s does not exist or is excluded' % path)
 
     def is_valid(self, f):
-        if adb:
+        if self.__adb__:
             if re.match('.*/cache', f):
                 return False
             if os.path.exists(ANDROID_SKIPS):
@@ -103,7 +103,7 @@ class FileIndex:
         return True
 
     def gen_index(self):
-        if adb:
+        if self.__adb__:
             logger.info('generating index of android device')
             self.adb_read_folder(self.__path__)
             return
@@ -155,6 +155,7 @@ class FileIndex:
             path = os.path.join(self.__path__, '.index')
         logger.debug('writing index to %s' % path)
         with open(path, 'w+') as index:
+            index.write('[adb={0}]\n'.format(self.__adb__))
             index.writelines(["%s\n" % s for s in self.__dirs__])
             index.write('# files\n')
             index.writelines(['%s@@@%s\n' % (f, self.hash(f)) for f in self.files()])
@@ -168,6 +169,9 @@ class FileIndex:
             return
         with open(path) as index:
             line = index.readline()
+            if bool(re.match('\[adb=True\]', line.strip())):
+                logger.debug('setting adb to True')
+                self.__adb__ = True
             # read all directories
             while line != '# files\n':
                 self.__dirs__.append(line[:len(line) - 1])
@@ -242,6 +246,7 @@ class Backup:
         self.__timestamp__ = timestamp or self.get_timestamp()
         self.__old_index__ = parent.__new_index__ if parent else None
         self.__new_index__ = index
+        self.__adb__ = index.__adb__
 
     @staticmethod
     def get_timestamp():
@@ -275,11 +280,11 @@ class Backup:
             # write files
             for f in self.__new_index__.get_diff(self.__old_index__):
                 logger.info('adding %s...' % f)
-                if adb:
+                if self.__adb__:
                     # pull files off phone into temp folder before backing up
                     temp_path = os.path.join(TEMP_DIR, '.%s_adb' % self.__timestamp__)
                     # replace file root with temp path
-                    temp_name = (os.path.abspath(temp_path) + f.replace('/', os.sep))
+                    temp_name = os.path.join(os.path.abspath(temp_path), f.replace('/', os.sep))
                     try:
                         subprocess.check_call(['adb', 'pull', '-a', f, temp_name])
                         # add to tar using original name
@@ -297,7 +302,16 @@ class Backup:
                     added += 1
 
             # backup current config file
-            tar.add(CONFIG_FILE, '.backpy')
+            if self.__adb__:
+                # create dummy file for this backup only
+                temp_config = os.path.join(TEMP_DIR, 'dummy_config')
+                with open(temp_config, 'w') as dummy:
+                    dummy.write('{0},{1}\n'.format(self.__new_index__.__path__, self.__path__))
+                tar.add(temp_config, '.backpy')
+                # delete dummy file now we've written it
+                delete_temp_files(temp_config)
+            else:
+                tar.add(CONFIG_FILE, '.backpy')
 
         # do not keep index if nothing added or removed
         removed = self.__new_index__.get_missing(self.__old_index__)
@@ -351,7 +365,7 @@ class Backup:
         logger.debug('got dest dir %s' % dest)
 
         # index destination dir
-        dest_index = FileIndex(fullname)
+        dest_index = FileIndex(fullname, adb=self.__adb__)
         dest_index.gen_index()
 
         # restore changed and missing files
@@ -772,7 +786,7 @@ def add_skip(path, skips, add_regex=None):
     write_directory_list(path, dirs)
 
 
-def perform_backup(directories, timestamp=None):
+def perform_backup(directories, timestamp=None, adb=False):
     if len(directories) < 2:
         logger.error('not enough directories to backup')
         logger.error(directories)
@@ -780,7 +794,7 @@ def perform_backup(directories, timestamp=None):
     src = directories[0]
     dest = directories[1]
     skip = directories[2:] if len(directories) > 2 else None
-    logger.info('backup of directory %s to %s' % (src, dest))
+    logger.info('backup of directory {0} to {1}{2}'.format(src, dest, ' using adb' if adb else ''))
     if skip is not None:
         logger.info('  skipping directories that match %s' % ' or '.join(skip))
     # check dest exists before indexing
@@ -796,7 +810,7 @@ def perform_backup(directories, timestamp=None):
         except OSError:
             logger.error('could not create directory')
             return
-    f = FileIndex(src, skip)
+    f = FileIndex(src, skip, adb=adb)
     f.gen_index()
     backup = Backup(dest, f, latest_backup(dest), timestamp)
     backup.write_to_disk()
@@ -1104,11 +1118,10 @@ if __name__ == '__main__':
             print ''
             perform_backup(directory)
     elif args['adb']:
-        adb = True
         source = '/sdcard/'
         if len(args['adb']) > 1:
             source = args['adb'][1]
-        perform_backup([source, args['adb'][0]])
+        perform_backup([source, args['adb'][0]], adb=True)
     elif args['restore'] is not None:
         perform_restore(backup_dirs, args['restore'])
     else:
