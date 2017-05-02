@@ -87,8 +87,8 @@ class BackpyTest(unittest.TestCase):
 
     def text_in_file(self, filename, text):
         with open(filename) as l:
-            config_contents = l.read()
-            return text in config_contents
+            file_contents = l.read()
+            return text in file_contents
 
     def get_last_line(self, filename):
         with open(filename, 'r') as f:
@@ -109,18 +109,64 @@ class BackpyTest(unittest.TestCase):
         for directory in backpy.read_directory_list(backpy.CONFIG_FILE):
             backpy.perform_backup(directory, self.mock_timestamp())
 
+    def get_files_in_src(self):
+        return os.listdir(self.src_root)
+
+    def get_files_in_one(self):
+        return os.listdir(os.path.join(self.src_root, 'one'))
+
+    def get_files_in_four(self):
+        return os.listdir(os.path.join(self.src_root, 'one', 'four'))
+
+    def get_one_four_five_path(self):
+        return os.path.join(self.src_root, 'one', 'four', 'five')
+
+    def get_six_seven_path(self):
+        return os.path.join(self.src_root, 'six seven')
+
     # add text to a file
     def change_one_four_five(self, text):
         with open(os.path.join(self.src_root, 'one', 'four', 'five'), 'a') as f:
             f.write('{0}\n'.format(text))
 
+    # generic file delete method
+    def delete_files(self, filepath):
+        backpy.delete_temp_files(filepath)
+
     # delete a file
     def delete_one_four_five(self):
-        os.unlink(os.path.join(self.src_root, 'one', 'four', 'five'))
+        backpy.delete_temp_files(os.path.join(self.src_root, 'one', 'four', 'five'))
+
+    def delete_one_nine_ten(self):
+        backpy.delete_temp_files(os.path.join(self.src_root, 'one', 'nine ten'))
+
+    # delete a folder
+    def delete_one_four(self):
+        backpy.delete_temp_files(os.path.join(self.src_root, 'one', 'four'))
 
     # delete a folder
     def delete_six_seven(self):
         backpy.delete_temp_files(os.path.join(self.src_root, 'six seven'))
 
+    def delete_all_folders(self):
+        backpy.delete_temp_files(self.src_root)
+
     def do_restore(self, files=None, chosen_index=None):
         backpy.perform_restore(backpy.read_directory_list(backpy.CONFIG_FILE), files, chosen_index)
+
+    def create_folder(self, folderpath):
+        backpy.logger.debug('creating folder {0}'.format(folderpath))
+        os.mkdir(folderpath)
+
+    def create_file(self, filepath, text):
+        with open(filepath, 'a') as f:
+            f.write(text)
+
+    def get_file_timestamp(self, filename):
+        return os.path.getmtime(filename)
+
+    def change_file_timestamp(self, filename):
+        with open(filename, 'r') as f:
+            file_content = f.read()
+        with open(filename, 'w') as f:
+            f.write(file_content)

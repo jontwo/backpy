@@ -44,3 +44,5 @@
 /storage/sdcard1/Music/
 /storage/sdcard1/Pictures/
 /storage/sdcard1/WPSystem/
+
+add */osmdroid/tiles/*

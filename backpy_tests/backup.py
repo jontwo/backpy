@@ -76,7 +76,7 @@ class BackupTest(common.BackpyTest):
         self.do_backup()
 
         # delete file
-        os.unlink(os.path.join(self.src_root, 'one', 'four', 'five'))
+        self.delete_one_four_five()
 
         self.do_backup()
 
@@ -90,9 +90,7 @@ class BackupTest(common.BackpyTest):
     def testAddNewFileAndBackup(self):
         self.do_backup()
 
-        # create new file
-        with open(os.path.join(self.src_root, 'six seven', 'eleven'), 'a') as f:
-            f.write('new file\n')
+        self.create_file(os.path.join(self.src_root, 'six seven', 'eleven'), 'new file\n')
 
         self.do_backup()
 
@@ -106,10 +104,8 @@ class BackupTest(common.BackpyTest):
     def testAddNewFolderAndBackup(self):
         self.do_backup()
 
-        # create a new folder and file
-        os.mkdir(os.path.join(self.src_root, 'six seven', 'twelve'))
-        with open(os.path.join(self.src_root, 'six seven', 'twelve', 'eleven'), 'a') as f:
-            f.write('new file\n')
+        self.create_folder(os.path.join(self.src_root, 'six seven', 'twelve'))
+        self.create_file(os.path.join(self.src_root, 'six seven', 'twelve', 'eleven'), 'new file\n')
 
         self.do_backup()
 
@@ -123,13 +119,11 @@ class BackupTest(common.BackpyTest):
     def testDeleteFolderAndBackup(self):
         self.do_backup()
 
-        # create a new folder and file
-        os.mkdir(os.path.join(self.src_root, 'six seven', 'twelve'))
-        with open(os.path.join(self.src_root, 'six seven', 'twelve', 'eleven'), 'a') as f:
-            f.write('new file\n')
+        self.create_folder(os.path.join(self.src_root, 'six seven', 'twelve'))
+        self.create_file(os.path.join(self.src_root, 'six seven', 'twelve', 'eleven'), 'new file\n')
 
         # delete a folder
-        backpy.delete_temp_files(os.path.join(self.src_root, 'one', 'four'))
+        self.delete_one_four()
 
         self.do_backup()
 
@@ -169,9 +163,7 @@ class BackupTest(common.BackpyTest):
 
         self.do_backup()
 
-        # change a file
-        with open(os.path.join(self.src_root, 'six seven', 'eight'), 'a') as f:
-            f.write('some more text\n')
+        self.create_file(os.path.join(self.src_root, 'six seven', 'eight'), 'some more text\n')
 
         self.do_backup()
 

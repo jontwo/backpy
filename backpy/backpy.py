@@ -42,15 +42,15 @@ from hashlib import md5
 from shutil import rmtree
 
 __author__ = 'Steffen Schneider'
-__version__ = '1.4.4'
+__version__ = '1.4.5'
 __copyright__ = 'Simplified BSD license'
 
 ROOT_PATH = os.path.abspath(os.sep)
-CONFIG_FILE = os.path.expanduser('~/.backpy')
+CONFIG_FILE = os.path.join(os.path.expanduser('~'), '.backpy')
 logger = logging.getLogger('backpy')
-LOG_FILE = os.path.expanduser('~/backpy.log')
+LOG_FILE = os.path.join(os.path.expanduser('~'), 'backpy.log')
 TEMP_DIR = os.path.join(tempfile.gettempdir(), 'backpy')
-ANDROID_SKIPS = os.path.expanduser('~/.androidSkipFolders')
+ANDROID_SKIPS = os.path.join(os.path.expanduser('~'), '.androidSkipFolders')
 
 
 class SpecialFormatter(logging.Formatter):
@@ -155,6 +155,8 @@ class FileIndex:
             path = os.path.join(self.__path__, '.index')
         logger.debug('writing index to %s' % path)
         with open(path, 'w+') as index:
+            # BREAKING CHANGE: if you read this index with an old version
+            # of backpy, you'll get a [adb=x] folder
             index.write('[adb={0}]\n'.format(self.__adb__))
             index.writelines(["%s\n" % s for s in self.__dirs__])
             index.write('# files\n')
@@ -172,6 +174,8 @@ class FileIndex:
             if bool(re.match('\[adb=True\]', line.strip())):
                 logger.debug('setting adb to True')
                 self.__adb__ = True
+                # read next line
+                line = index.readline()
             # read all directories
             while line != '# files\n':
                 self.__dirs__.append(line[:len(line) - 1])
@@ -286,7 +290,14 @@ class Backup:
                     # replace file root with temp path
                     temp_name = os.path.join(os.path.abspath(temp_path), f.replace('/', os.sep))
                     try:
-                        subprocess.check_call(['adb', 'pull', '-a', f, temp_name])
+                        process = subprocess.Popen(
+                            ['adb', 'pull', '-a', f, temp_name],
+                            stdout=subprocess.PIPE, stderr=subprocess.STDOUT
+                        )
+                        output, error = process.communicate()
+                        logger.info(output.strip())
+                        if error:
+                            logger.warning(error.strip())
                         # add to tar using original name
                         tar.add(temp_name, f)
                         added += 1
@@ -404,11 +415,38 @@ class Backup:
         with closing(tarfile.open(self.get_tarpath(), 'r:*')) as tar:
             root_path, member_name = self.get_member_name(fullname)
             logger.info('restoring %s from %s' % (member_name, self.get_tarpath()))
-            try:
-                tar.extractall(root_path, [tar.getmember(member_name)])
-            except KeyError:
-                # file may be in index but not backed up as it was unchanged from previous backup
-                logger.info('%s not found in this backup' % os.path.basename(member_name))
+            if self.__adb__:
+                # extract files into temp folder before restoring to phone
+                file_info = tar.getmember(member_name)
+                temp_path = os.path.join(TEMP_DIR, '.%s_adb' % self.__timestamp__)
+                temp_name = os.path.join(os.path.abspath(temp_path), file_info.name.replace('/', os.sep))
+                try:
+                    logger.debug('extracting {0} to temp path {1}'.format(file_info.name, temp_path))
+                    tar.extractall(temp_path, [file_info])
+                    process = subprocess.Popen(
+                        ['adb', 'push', temp_name, fullname],
+                        stdout=subprocess.PIPE, stderr=subprocess.STDOUT
+                    )
+                    output, error = process.communicate()
+                    logger.info(output.strip())
+                    if error:
+                        logger.warning(error.strip())
+                except subprocess.CalledProcessError:
+                    logger.warning('could not push %s to phone' % temp_name)
+                except KeyError:
+                    # file may be in index but not backed up as it was unchanged from previous backup
+                    logger.info('%s not found in this backup' % os.path.basename(member_name))
+                finally:
+                    delete_temp_files(temp_name)
+
+                # delete temp files
+                delete_temp_files(temp_path)
+            else:
+                try:
+                    tar.extractall(root_path, [tar.getmember(member_name)])
+                except KeyError:
+                    # file may be in index but not backed up as it was unchanged from previous backup
+                    logger.info('%s not found in this backup' % os.path.basename(member_name))
 
     @staticmethod
     def get_member_name(name):
@@ -700,6 +738,7 @@ def add_directory(path, src, dest):
 
 
 def make_directory(path):
+    logger.debug('making directory {0}'.format(path))
     try:
         if os.path.pardir in path:
             os.mkdir(path)
@@ -800,15 +839,9 @@ def perform_backup(directories, timestamp=None, adb=False):
     # check dest exists before indexing
     if not os.path.exists(dest):
         logger.warning('destination path %s not found, creating directory' % dest)
-        try:
-            if os.path.pardir in dest:
-                os.mkdir(dest)
-            else:
-                # best to use recursive make dir, but
-                # only works if dest does not contain pardir (..)
-                os.makedirs(dest)
-        except OSError:
-            logger.error('could not create directory')
+        make_directory(dest)
+        if not os.path.exists(dest):
+            # make directory failed
             return
     f = FileIndex(src, skip, adb=adb)
     f.gen_index()
@@ -943,8 +976,9 @@ def find_file_in_backup(dirlist, filename, index=None):
 
 def perform_restore(dirlist, files=None, chosen_index=None):
     if not files:
+        logger.debug('restoring all files')
         if chosen_index:
-            logger.warning('restoring all files, chosen index will be reset to 0')
+            logger.warning('restoring all files but index given, chosen index will be reset to 0')
         for dirs in dirlist:
             # restore each file present at time of last backup
             latest = latest_backup(dirs[1])
@@ -971,7 +1005,9 @@ def perform_restore(dirlist, files=None, chosen_index=None):
         for f in files:
             # restoring individual files/folders
             logger.debug('looking for %s' % f)
-            find_file_in_backup(dirlist, os.path.normpath(f), chosen_index)
+            # REMOVED: find_file_in_backup(dirlist, os.path.normpath(f), chosen_index)
+            # don't think normpath is needed, and it messes up adb
+            find_file_in_backup(dirlist, f, chosen_index)
 
 
 def set_log_path(log_path):
@@ -995,7 +1031,7 @@ def set_up_logging(level=1):
         logger.addHandler(sh)
     fh = logging.handlers.RotatingFileHandler(LOG_FILE, maxBytes=1000000, backupCount=3)
     fh.setLevel(logging.DEBUG)
-    ff = logging.Formatter('%(asctime)s: %(levelname)s: %(name)s: %(message)s')
+    ff = logging.Formatter('%(asctime)s: %(levelname)s: %(funcName)s: %(message)s')
     fh.setFormatter(ff)
     logger.addHandler(fh)
 
