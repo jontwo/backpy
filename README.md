@@ -1,7 +1,7 @@
 backpy
 ======
 
-[![Build Status] (https://travis-ci.org/jontwo/backpy.svg?branch=master)] (https://travis-ci.org/jontwo/backpy)
+[![Build Status](https://travis-ci.org/jontwo/backpy.svg?branch=master)](https://travis-ci.org/jontwo/backpy)
 
 backpy is a simple command line tool to perform backups.
 
