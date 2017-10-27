@@ -8,7 +8,6 @@ import unittest
 
 
 class RestoreTest(common.BackpyTest):
-
     @classmethod
     def setUpClass(cls):
         # backup any existing config
@@ -115,7 +114,8 @@ class RestoreTest(common.BackpyTest):
         self.assertIn('six seven', self.get_files_in_src())
 
         # check correct version of changed file is restored
-        self.assertEqual('yet more text', self.get_last_line(os.path.join(self.src_root, 'one', 'four', 'five')))
+        self.assertEqual('yet more text',
+                         self.get_last_line(os.path.join(self.src_root, 'one', 'four', 'five')))
 
     # 9. do backup 4, restore the original version of the file
     def testDeleteFileAndRestoreOriginal(self):
@@ -132,7 +132,8 @@ class RestoreTest(common.BackpyTest):
         self.assertIn('five', self.get_files_in_four())
 
         # check correct version of changed file is restored
-        self.assertEqual('some text', self.get_last_line(os.path.join(self.src_root, 'one', 'four', 'five')))
+        self.assertEqual('some text',
+                         self.get_last_line(os.path.join(self.src_root, 'one', 'four', 'five')))
 
     # 10. do backup 7, full restore, folder should still be deleted
     def testDeleteFolderAndFullRestore(self):
@@ -151,7 +152,8 @@ class RestoreTest(common.BackpyTest):
         self.assertNotIn('four', self.get_files_in_src())
 
         # check new file is restored
-        self.assertEqual('new file', self.get_last_line(os.path.join(self.src_root, 'six seven', 'twelve', 'eleven')))
+        self.assertEqual('new file', self.get_last_line(
+            os.path.join(self.src_root, 'six seven', 'twelve', 'eleven')))
 
     # 11. do backup 3, delete file, change some other files, restore intermediate version
     def testBackupDeleteChangeOtherFilesThenRestore(self):
@@ -171,9 +173,9 @@ class RestoreTest(common.BackpyTest):
         self.do_restore(['five'], chosen_index=1)
 
         # check right version is restored
-        expectedLastLine = 'some more text'
-        actualLastLine = self.get_last_line(os.path.join(self.src_root, 'one', 'four', 'five'))
-        self.assertEqual(expectedLastLine, actualLastLine)
+        expected_last_line = 'some more text'
+        actual_last_line = self.get_last_line(os.path.join(self.src_root, 'one', 'four', 'five'))
+        self.assertEqual(expected_last_line, actual_last_line)
 
     # 12. do backups 6 and 3 then restore a file that's been there from the start
     def testMultipleBackupsThenRestoreOriginalFile(self):
@@ -197,9 +199,10 @@ class RestoreTest(common.BackpyTest):
         # check file is there
         self.assertIn('nine ten', self.get_files_in_one())
 
+        # 13. TODO do backup and restore using UNC paths
+        # should probably try this but not sure how, as user will have to set up a share prior to
+        # running test
 
-    # 13. TODO do backup and restore using UNC paths
-    # should probably try this but not sure how, as user will have to set up a share prior to running test
 
 if __name__ == '__main__':
     suite = unittest.TestLoader().loadTestsFromTestCase(RestoreTest)

@@ -136,10 +136,8 @@ class BackupTest(common.BackpyTest):
     # 8. do 1 (with a skip), change a file in skipped folder, backup again
     def testAddSkipAndBackup(self):
         # add skip
-        skips = []
-        skips.append(os.path.join(self.src_root, 'one'))
-        skips.append(os.path.join(self.dest_root, 'one'))
-        skips.append(os.path.join(self.src_root, 'one', 'four'))
+        skips = [os.path.join(self.src_root, 'one'), os.path.join(self.dest_root, 'one'),
+                 os.path.join(self.src_root, 'one', 'four')]
         backpy.add_skip(backpy.CONFIG_FILE, skips)
 
         self.do_backup()
@@ -155,10 +153,8 @@ class BackupTest(common.BackpyTest):
     # 9. do 1 (with a wildcard skip), change a file in skipped folder, backup again
     def testAddSkipWithWildcard(self):
         # add skip
-        skips = []
-        skips.append(os.path.join(self.src_root, 'six seven'))
-        skips.append(os.path.join(self.dest_root, 'six seven'))
-        skips.append('seven')
+        skips = [os.path.join(self.src_root, 'six seven'),
+                 os.path.join(self.dest_root, 'six seven'), 'seven']
         backpy.add_skip(backpy.CONFIG_FILE, skips, True)
 
         self.do_backup()

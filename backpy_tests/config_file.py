@@ -9,7 +9,6 @@ import unittest
 
 
 class ConfigTest(common.BackpyTest):
-
     @classmethod
     def setUpClass(cls):
         # backup any existing config
@@ -133,6 +132,7 @@ class ConfigTest(common.BackpyTest):
         size_after = self.get_file_size(backpy.CONFIG_FILE)
         self.assertGreater(size_after, size_before)
         self.assertTrue(self.text_in_file(backpy.CONFIG_FILE, src))
+
 
 if __name__ == '__main__':
     suite = unittest.TestLoader().loadTestsFromTestCase(ConfigTest)

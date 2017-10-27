@@ -95,13 +95,15 @@ class BackpyTest(unittest.TestCase):
             lines = f.read().strip().split('\n')
         return lines[-1] if lines else ''
 
-    def get_file_size(self, filename):
+    @staticmethod
+    def get_file_size(filename):
         size = 0
         if os.path.exists(filename):
             size = os.path.getsize(filename)
         return size
 
-    def count_files(self, search_path):
+    @staticmethod
+    def count_files(search_path):
         return len(glob.glob(search_path))
 
     # backup/restore methods for use in more than one test
