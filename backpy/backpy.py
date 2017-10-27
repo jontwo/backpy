@@ -35,7 +35,7 @@ from contextlib import closing
 from datetime import datetime
 
 # Project imports
-from backup import Backup, TEMP_DIR
+from backup import Backup, CONFIG_FILE, TEMP_DIR
 from file_index import FileIndex
 from helpers import delete_temp_files, string_equals, string_contains, handle_arg_spaces, \
     make_directory
@@ -44,8 +44,6 @@ from logger import logger, set_up_logging
 __author__ = 'Steffen Schneider'
 __version__ = '1.4.5'
 __copyright__ = 'Simplified BSD license'
-
-CONFIG_FILE = os.path.join(os.path.expanduser('~'), '.backpy')
 
 
 def read_backup(path):

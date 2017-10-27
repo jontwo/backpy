@@ -144,20 +144,29 @@ class FileIndex:
             logger.debug('not found, returning')
             return
         with open(path) as index:
-            line = index.readline()
-            if bool(re.match('\[adb=True\]', line.strip())):
-                logger.debug('setting adb to True')
-                self.__adb__ = True
-                # read next line
-                line = index.readline()
-            # read all directories
-            while line != '# files\n':
-                self.__dirs__.append(line[:len(line) - 1])
-                line = index.readline()
-            # read all files
+            in_files = False
             for line in index.readlines():
-                [fname, _hash] = line[:len(line) - 1].split('@@@')
-                self.__files__[fname] = _hash
+                # handle any parameter labels
+                param = re.match('\[(.*)\]', line.strip())
+                if param:
+                    if param.group(1) == 'adb=True':
+                        logger.debug('setting adb to True')
+                        self.__adb__ = True
+                    if param.group(1) == 'files':
+                        in_files = True
+                    # move on to next line
+                    continue
+                # handle old method of marking files
+                if line.strip() == '# files':
+                    in_files = True
+                    continue
+                if in_files:
+                    # add file
+                    [fname, _hash] = line[:len(line) - 1].split('@@@')
+                    self.__files__[fname] = _hash
+                else:
+                    # add directory
+                    self.__dirs__.append(line[:len(line) - 1])
 
     def get_diff(self, index=None):
         filelist = []
