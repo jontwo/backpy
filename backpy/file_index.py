@@ -188,7 +188,7 @@ class FileIndex:
         """
         logger.debug('reading adb folder %s' % path)
         # check files in this folder
-        for out in subprocess.check_output(['adb', 'shell', 'ls', '-l', path]).split('\n'):
+        for out in subprocess.check_output(['adb', 'shell', 'ls', '-l', re.escape(path)]).split('\n'):
             file_info = out.strip()
             if not len(file_info):
                 continue

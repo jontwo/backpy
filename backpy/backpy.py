@@ -37,12 +37,11 @@ from datetime import datetime
 # Project imports
 from backup import Backup, CONFIG_FILE, TEMP_DIR
 from file_index import FileIndex
-from helpers import delete_temp_files, string_equals, string_contains, handle_arg_spaces, \
-    make_directory
+from helpers import delete_temp_files, string_equals, string_contains, handle_arg_spaces, make_directory
 from logger import logger, set_up_logging
 
 __author__ = 'Steffen Schneider'
-__version__ = '1.4.6'
+__version__ = '1.4.7'
 __copyright__ = 'Simplified BSD license'
 
 
