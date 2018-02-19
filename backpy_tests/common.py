@@ -1,14 +1,18 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import backpy
+# StdLib imports
 import glob
+import logging
 import os
 import unittest
 from shutil import (
     copy2,
     copytree,
 )
+
+# Project imports
+import backpy
 
 
 class BackpyTest(unittest.TestCase):
@@ -22,6 +26,7 @@ class BackpyTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         backpy.set_up_logging(0)
+        logging.disable(logging.CRITICAL)
         # backup any existing config
         if os.path.exists(backpy.CONFIG_FILE):
             cls.restore_config = True
@@ -44,6 +49,7 @@ class BackpyTest(unittest.TestCase):
             backpy.logger.debug('restoring config')
             os.unlink(backpy.CONFIG_FILE)
             os.rename(cls.config_backup, backpy.CONFIG_FILE)
+        logging.disable(logging.NOTSET)
 
     @classmethod
     def mock_timestamp(cls):
@@ -85,10 +91,15 @@ class BackpyTest(unittest.TestCase):
         dest = os.path.join(self.dest_root, 'six seven')
         backpy.add_directory(backpy.CONFIG_FILE, src, dest)
 
-    def text_in_file(self, filename, text):
+    def add_global_skips(self, skips):
+        backpy.add_global_skip(backpy.CONFIG_FILE, skips)
+
+    def file_contents(self, filename):
         with open(filename) as l:
-            file_contents = l.read()
-            return text in file_contents
+            return l.read()
+
+    def text_in_file(self, filename, text):
+        return text in self.file_contents(filename)
 
     def get_last_line(self, filename):
         with open(filename, 'r') as f:
@@ -172,3 +183,8 @@ class BackpyTest(unittest.TestCase):
             file_content = f.read()
         with open(filename, 'w') as f:
             f.write(file_content)
+
+    def get_backpy_version(self):
+        for line in open(os.path.join(self.project_dir, 'backpy', 'backpy.py')):
+            if '__version__ = ' in line:
+                return eval(line.split('=')[-1])

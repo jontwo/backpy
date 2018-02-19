@@ -37,12 +37,16 @@ from datetime import datetime
 # Project imports
 from file_index import FileIndex
 from helpers import (
-    delete_temp_files, get_file_hash, get_filename_index, get_folder_index, string_startswith
+    CONFIG_FILE,
+    delete_temp_files,
+    get_file_hash,
+    get_filename_index,
+    get_folder_index,
+    string_startswith
 )
 from logger import logger
 
 TEMP_DIR = os.path.join(tempfile.gettempdir(), 'backpy')
-CONFIG_FILE = os.path.join(os.path.expanduser('~'), '.backpy')
 
 
 class Backup:

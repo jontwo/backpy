@@ -8,3 +8,4 @@ backpy.egg-info/*
 resources/dest_files/.backpy  
 .coverage
 coverage_*
+.noseids

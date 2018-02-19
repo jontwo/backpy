@@ -1,11 +1,15 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import backpy
-import common
+# StdLib Imports
 import os
 import subprocess
 import unittest
+
+# Project Imports
+import backpy
+import common
+from backpy.helpers import get_config_key, SKIP_KEY
 
 
 class ConfigTest(common.BackpyTest):
@@ -133,6 +137,64 @@ class ConfigTest(common.BackpyTest):
         self.assertGreater(size_after, size_before)
         self.assertTrue(self.text_in_file(backpy.CONFIG_FILE, src))
 
+    def testAddGlobalSkipAsString(self):
+        expected_skips = ['1,2,3']
+
+        backpy.add_global_skip(backpy.CONFIG_FILE, expected_skips)
+
+        actual_skips = get_config_key(backpy.CONFIG_FILE, SKIP_KEY)
+
+        self.assertItemsEqual(expected_skips, actual_skips)
+
+    def testAddGlobalSkipWithWildcards(self):
+        expected_skips = ['*.abc,*.def']
+
+        backpy.add_global_skip(backpy.CONFIG_FILE, expected_skips)
+
+        actual_skips = get_config_key(backpy.CONFIG_FILE, SKIP_KEY)
+
+        self.assertItemsEqual(expected_skips, actual_skips)
+
+    def testAppendGlobalSkip(self):
+        expected_skips = ['one,two,three']
+        backpy.add_global_skip(backpy.CONFIG_FILE, ['one,two'])
+        backpy.add_global_skip(backpy.CONFIG_FILE, ['two,three'])
+
+        actual_skips = get_config_key(backpy.CONFIG_FILE, SKIP_KEY)
+
+        self.assertItemsEqual(expected_skips, actual_skips)
+
+    def testAddGlobalSkipAsItems(self):
+        expected_skips = ['1', '2', '3']
+
+        backpy.add_global_skip(backpy.CONFIG_FILE, expected_skips)
+
+        actual_skips = get_config_key(backpy.CONFIG_FILE, SKIP_KEY)
+
+        self.assertItemsEqual([','.join(expected_skips)], actual_skips)
+
+    def testRemoveGlobalSkip(self):
+        added_skips = ['1,2,3,4']
+        expected_skips = ['1,3,4']
+        backpy.add_global_skip(backpy.CONFIG_FILE, added_skips)
+
+        backpy.delete_global_skip(backpy.CONFIG_FILE, ['2'])
+
+        actual_skips = get_config_key(backpy.CONFIG_FILE, SKIP_KEY)
+
+        self.assertItemsEqual(expected_skips, actual_skips)
+
+    def testRemoveGlobalSkips(self):
+        added_skips = ['1,2,3,4']
+        removed_skips = ['2', '3', '4']
+        expected_skips = ['1']
+        backpy.add_global_skip(backpy.CONFIG_FILE, added_skips)
+
+        backpy.delete_global_skip(backpy.CONFIG_FILE, removed_skips)
+
+        actual_skips = get_config_key(backpy.CONFIG_FILE, SKIP_KEY)
+
+        self.assertItemsEqual(expected_skips, actual_skips)
 
 if __name__ == '__main__':
     suite = unittest.TestLoader().loadTestsFromTestCase(ConfigTest)

@@ -1,0 +1,14 @@
+[backpy version 1.5.0]
+[adb=False]
+[dirs]
+/tmp/backpy/resources/source_files
+/tmp/backpy/resources/source_files/one
+/tmp/backpy/resources/source_files/six seven
+/tmp/backpy/resources/source_files/one/four
+[files]
+/tmp/backpy/resources/source_files/one/four/five@@@4d93d51945b88325c21364ef59fc5b
+/tmp/backpy/resources/source_files/three@@@4d93d51945b88325c21364ef59fc5b
+/tmp/backpy/resources/source_files/one/nine ten@@@688ec265dcae42a0338730f8ac609f63
+/tmp/backpy/resources/source_files/six seven/eight@@@e1cbb0c3879af8347246f12c559a86b5
+[some other stuff]
+not a file

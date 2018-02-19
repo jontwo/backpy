@@ -33,7 +33,16 @@ import re
 import subprocess
 
 # Project imports
-from helpers import list_contains, get_file_hash, get_filename_index, get_folder_index
+from helpers import (
+    CONFIG_FILE,
+    SKIP_KEY,
+    list_contains,
+    get_file_hash,
+    get_filename_index,
+    get_folder_index,
+    get_config_key,
+    read_config_file
+)
 from logger import logger
 
 ANDROID_SKIPS = os.path.join(os.path.expanduser('~'), '.androidSkipFolders')
@@ -46,8 +55,13 @@ class FileIndex:
         self.__files__ = dict()
         self.__dirs__ = [path]
         self.__path__ = path
-        self.__exclusion_rules__ = exclusion_rules
+        self.__exclusion_rules__ = exclusion_rules or []
         self.__adb__ = adb
+        # add global skips to exclusion rules
+        global_skips = get_config_key(CONFIG_FILE, SKIP_KEY)
+        if global_skips:
+            self.__exclusion_rules__.extend(global_skips[0].split(','))
+            logger.debug('init exclusion rules = %s', self.__exclusion_rules__)
         if adb:
             logger.debug('new FileIndex for {0}, adb=True'.format(path))
         # suppress warning when reading an existing index
@@ -143,30 +157,31 @@ class FileIndex:
         if not os.path.exists(path):
             logger.debug('not found, returning')
             return
-        with open(path) as index:
-            in_files = False
-            for line in index.readlines():
-                # handle any parameter labels
-                param = re.match('\[(.*)\]', line.strip())
-                if param:
-                    if param.group(1) == 'adb=True':
-                        logger.debug('setting adb to True')
-                        self.__adb__ = True
-                    if param.group(1) == 'files':
-                        in_files = True
-                    # move on to next line
-                    continue
-                # handle old method of marking files
-                if line.strip() == '# files':
-                    in_files = True
-                    continue
-                if in_files:
-                    # add file
-                    [fname, _hash] = line[:len(line) - 1].split('@@@')
+        index = read_config_file(path)
+        logger.debug('READ INDEX %s', index)
+        for k, v in index.iteritems():
+            if k == 'adb':
+                self.__adb__ == bool(v)
+            elif k == 'files':
+                for f in v:
+                    [fname, _hash] = f.split('@@@')
                     self.__files__[fname] = _hash
-                else:
-                    # add directory
-                    self.__dirs__.append(line[:len(line) - 1])
+            elif k == 'dirs':
+                self.__dirs__.extend([d for d in v if d not in self.dirs()])
+            elif k == 'default':
+                # items without a header, i.e. pre-1.5.0 style index
+                in_files = False
+                for line in v:
+                    if line == '# files':
+                        in_files = True
+                        continue
+                    if in_files:
+                        # add file
+                        [fname, _hash] = line.split('@@@')
+                        self.__files__[fname] = _hash
+                    elif line not in self.dirs():
+                        # add directory
+                        self.__dirs__.append(line)
 
     def get_diff(self, index=None):
         filelist = []

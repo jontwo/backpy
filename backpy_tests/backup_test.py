@@ -8,17 +8,6 @@ import unittest
 
 
 class BackupTest(common.BackpyTest):
-    @classmethod
-    def setUpClass(cls):
-        # backup any existing config
-        # set root backup dir
-        super(BackupTest, cls).setUpClass()
-
-    @classmethod
-    def tearDownClass(cls):
-        # keep config for reference
-        # restore original config
-        super(BackupTest, cls).tearDownClass()
 
     def setUp(self):
         # start test with blank config
@@ -26,6 +15,7 @@ class BackupTest(common.BackpyTest):
         # clear dest folder
         backpy.delete_temp_files(self.dest_root)
         # add some entries to config
+        self.add_global_skips('*.jpg,*.tif')
         self.add_one_folder()
         self.add_six_seven_folder()
         self.one_folder = os.path.join(self.dest_root, 'one')
@@ -168,6 +158,19 @@ class BackupTest(common.BackpyTest):
         zips_in_six_seven = self.count_files(os.path.join(self.six_seven_folder, '*.tar.gz'))
         self.assertEqual(zips_in_one, 1)
         self.assertEqual(zips_in_six_seven, 0)
+
+    # 10. do 1, add skipped file, backup again
+    def testBackupWithGlobalSkip(self):
+        self.do_backup()
+        zips_before = self.count_files(os.path.join(self.one_folder, '*.tar.gz'))
+
+        self.create_file(os.path.join(self.src_root, 'one', 'test.jpg'), '0\n')
+
+        self.do_backup()
+        zips_after = self.count_files(os.path.join(self.one_folder, '*.tar.gz'))
+
+        self.assertEqual(zips_before, 1)
+        self.assertEqual(zips_before, zips_after)
 
 
 if __name__ == '__main__':

@@ -1,16 +1,19 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import backpy
-import backup
-import common
+# StdLib imports
 import os
 import platform
 import re
-import restore
 import subprocess
 import time
 import unittest
+
+# Project imports
+import backpy
+import backup_test
+import common
+import restore_test
 
 
 def log_subprocess_output(pipe):
@@ -212,7 +215,7 @@ class AdbTest(common.BackpyTest):
         push_files(filename, file_dest)
 
 
-class AdbBackupTest(AdbTest, backup.BackupTest):
+class AdbBackupTest(AdbTest, backup_test.BackupTest):
     @classmethod
     def setUpClass(cls):
         # backup any existing config
@@ -238,7 +241,7 @@ class AdbBackupTest(AdbTest, backup.BackupTest):
         pass
 
 
-class AdbRestoreTest(AdbTest, restore.RestoreTest):
+class AdbRestoreTest(AdbTest, restore_test.RestoreTest):
     @classmethod
     def setUpClass(cls):
         # backup any existing config

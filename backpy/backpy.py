@@ -35,13 +35,27 @@ from contextlib import closing
 from datetime import datetime
 
 # Project imports
-from backup import Backup, CONFIG_FILE, TEMP_DIR
+from backup import Backup, TEMP_DIR
 from file_index import FileIndex
-from helpers import delete_temp_files, string_equals, string_contains, handle_arg_spaces, make_directory
+from helpers import (
+    CONFIG_FILE,
+    DEFAULT_KEY,
+    SKIP_KEY,
+    VERSION_KEY,
+    delete_temp_files,
+    handle_arg_spaces,
+    list_contains,
+    make_directory,
+    get_config_key,
+    get_config_version,
+    string_contains,
+    string_equals,
+    update_config_file
+)
 from logger import logger, set_up_logging
 
 __author__ = 'Steffen Schneider'
-__version__ = '1.4.7'
+__version__ = '1.5.0'
 __copyright__ = 'Simplified BSD license'
 
 
@@ -109,18 +123,15 @@ def get_config_index(dirlist, src, dest):
 
 def read_directory_list(path):
     logger.debug('reading directories from config')
-    with open(path) as l:
-        dirs = []
-        for line in l:
-            dirs.append(line[:-1].split(','))
+    dirs = []
+    for line in get_config_key(path, DEFAULT_KEY):
+        dirs.append(line.split(','))
     return dirs
 
 
 def write_directory_list(path, dirlist):
     logger.debug('writing directories to config')
-    with open(path, "w+") as l:
-        for line in dirlist:
-            l.write(','.join(line) + '\n')
+    update_config_file(path, DEFAULT_KEY, [','.join(line) for line in dirlist])
 
 
 def show_directory_list(dirs):
@@ -128,13 +139,17 @@ def show_directory_list(dirs):
     index = 1
     for line in dirs:
         if len(line) < 2:
-            logger.error('bad config entry:\n%s' % line)
+            logger.error('bad config entry:\n%s', line)
             return
-        logger.info('[{0}] from {1} to {2}'.format(index, line[0], line[1]))
+        logger.info('[%s] from %s to %s', index, line[0], line[1])
         index += 1
         skips = ', '.join(line[2:])
         if skips:
-            logger.info('  skipping %s' % skips)
+            logger.info('  skipping %s', skips)
+
+    global_skips = get_config_key(CONFIG_FILE, SKIP_KEY)
+    if global_skips:
+        logger.info('global skips: %s', global_skips[0])
 
 
 def add_directory(path, src, dest):
@@ -145,10 +160,10 @@ def add_directory(path, src, dest):
     :param src: source directory
     :param dest: destination directory
     """
-    logger.debug('adding directories %s, %s to list' % (src, dest))
+    logger.debug('adding directories %s, %s to list', src, dest)
     dirs = read_directory_list(path)
     if get_config_index(dirs, src, dest) is not None:
-        logger.error('%s, %s already added to config file' % (src, dest))
+        logger.error('%s, %s already added to config file', src, dest)
         return
     if not os.path.isabs(src):
         logger.warning('relative path used for source dir, adding current dir')
@@ -158,16 +173,16 @@ def add_directory(path, src, dest):
         dest = os.path.abspath(dest)
     # check config file again now paths are absolute
     if get_config_index(dirs, src, dest) is not None:
-        logger.error('%s, %s already added to config file' % (src, dest))
+        logger.error('%s, %s already added to config file', src, dest)
         return
 
-    logger.info('adding new entry source: %s, destination: %s' % (src, dest))
+    logger.info('adding new entry source: %s, destination: %s', src, dest)
     # now check paths exist. dest can be created, but fail if src not found
     if not os.path.exists(src):
-        logger.error('source path %s not found' % src)
+        logger.error('source path %s not found', src)
         return
     if not os.path.exists(dest):
-        logger.warning('destination path %s not found, creating directory' % dest)
+        logger.warning('destination path %s not found, creating directory', dest)
         make_directory(dest)
         if not os.path.exists(dest):
             # make directory failed
@@ -197,7 +212,7 @@ def delete_directory(path, src, dest, confirm=True):
     delete_directory_by_index(path, index, dirs, confirm)
 
 
-def delete_directory_by_index(path, index, dirs, confirm=True):
+def delete_directory_by_index(path, index, dirs=None, confirm=True):
     if dirs is None:
         dirs = read_directory_list(path)
 
@@ -212,6 +227,52 @@ def delete_directory_by_index(path, index, dirs, confirm=True):
     except IndexError:
         logger.error('index is invalid')
     write_directory_list(path, dirs)
+
+
+def add_global_skip(path, skips):
+    """
+    Add new skip to the config file. Use wildcards so fnmatch can match with filenames
+    :param path: path to config file
+    :param skips: list or comma-separated string of items to skip
+    """
+    logger.debug('adding global skip %s to list', skips)
+    if isinstance(skips, list):
+        skips = ','.join(skips)
+    old_skips = get_config_key(path, SKIP_KEY)
+    if old_skips:
+        logger.debug('old global skips %s', old_skips)
+        old_list = old_skips[0].split(',')
+        for skip in skips.split(','):
+            if not list_contains(skip, old_list):
+                logger.debug('adding %s to %s', skip, old_list)
+                old_list.append(skip)
+        update_config_file(path, SKIP_KEY, ','.join(old_list))
+    else:
+        update_config_file(path, SKIP_KEY, skips)
+
+
+def delete_global_skip(path, skips):
+    """
+    Remove skip from the config file.
+    :param path: path to config file
+    :param skips: list or comma-separated string of items to remove
+    """
+    logger.debug('removing global skip {} from list'.format(skips))
+    if not isinstance(skips, list):
+        skips = skips.split(',')
+    old_skips = get_config_key(path, SKIP_KEY)
+    if old_skips:
+        old_list = old_skips[0].split(',')
+        found = False
+        for skip in skips:
+            if skip in old_list:
+                old_list.remove(skip)
+                found = True
+        if found:
+            update_config_file(path, SKIP_KEY, ','.join(old_list))
+            return
+
+    logger.warn('global skip %s not found in list', skips)
 
 
 def add_skip(path, skips, add_regex=None):
@@ -444,12 +505,12 @@ def perform_restore(dirlist, files=None, chosen_index=None):
 def init(file_config):
     logger.debug('opening config file')
     try:
-        f = open(file_config)
-        f.close()
+        if get_config_version(file_config):
+            return
+        logger.debug('version not found')
     except IOError:
         logger.debug('not found, creating new config')
-        f = open(file_config, 'w+')
-        f.close()
+    update_config_file(file_config, VERSION_KEY, __version__)
 
 
 def parse_args():
@@ -465,18 +526,24 @@ def parse_args():
                        help='adds the specified source directory to the backup index. the backups '
                             'will be stored in the specified destination directory. if relative '
                             'paths used, the current working directory will be added.')
-    group.add_argument('-b', '--backup', action='store_true', dest='backup',
-                       help='performs a backup for all paths specified in the backup.lst file')
+    group.add_argument('-d', '--delete', metavar='path', nargs='+', dest='delete_path',
+                       required=False,
+                       help='remove the specified source and destination directories from the '
+                            'backup.lst file. can also specify directories by index (see list).')
     group.add_argument('-s', '--skip', dest='skip', metavar='string', nargs='+', required=False,
                        help='skips all directories that match the given fnmatch expression, e.g. '
                             'skip all subdirectories with <source dir>\*\*')
     group.add_argument('-c', '--contains', dest='contains', metavar='string', nargs='+',
                        required=False,
                        help='skips all directories that match the given fnmatch expression')
-    group.add_argument('-d', '--delete', metavar='path', nargs='+', dest='delete_path',
-                       required=False,
-                       help='remove the specified source and destination directories from the '
-                            'backup.lst file. can also specify directories by index (see list).')
+    group.add_argument('-g', '--add-global-skip', dest='add_global_skip', metavar='string',
+                       nargs='+', required=False,
+                       help='skip the given fnmatch expression(s) in all backups, e.g. *.jpg')
+    group.add_argument('-e', '--delete-global-skip', dest='delete_global_skip', metavar='string',
+                       nargs='+', required=False,
+                       help='remove global skip(s) from the backup.lst file')
+    group.add_argument('-b', '--backup', action='store_true', dest='backup',
+                       help='performs a backup for all paths specified in the backup.lst file')
     group.add_argument('-r', '--restore', metavar='path', nargs='*', dest='restore', required=False,
                        help='restore selected files to their original folders. can give full file '
                             'path or just the file name. leave blank to restore all. using #n as '
@@ -522,6 +589,10 @@ def run_backpy(args):
         add_skip(CONFIG_FILE, args['skip'])
     elif args['contains']:
         add_skip(CONFIG_FILE, args['contains'], True)
+    elif args['add_global_skip']:
+        add_global_skip(CONFIG_FILE, args['add_global_skip'])
+    elif args['delete_global_skip']:
+        delete_global_skip(CONFIG_FILE, args['delete_global_skip'])
     elif args['backup']:
         for directory in backup_dirs:
             print ''
