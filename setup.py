@@ -19,7 +19,21 @@ setup(
     install_requires=['argparse'],
     test_suite='backpy_tests',
     zip_safe=False,
-    author='Jon Morris',
-    author_email='jontwo@users.noreply.github.com',
-    url='https://github.com/jontwo/backpy'
+    author='Steffen Schneider',
+    author_email='stes@users.noreply.github.com',
+    maintainer='Jon Morris',
+    maintainer_email='jontwo@users.noreply.github.com',
+    url='https://github.com/jontwo/backpy',
+    entry_points={
+        'console_scripts': [
+            'backpy = backpy.backpy:run_backpy'
+        ]
+    },
+    classifiers = [
+        'Development Status :: 4 - Beta',
+        'Environment :: Console',
+        'License :: OSI Approved :: BSD License',
+        'Programming Language :: Python :: 2.7',
+        'Topic :: System :: Archiving :: Backup',
+    ]
 )

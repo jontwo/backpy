@@ -55,6 +55,7 @@ from helpers import (
 from logger import logger, set_up_logging
 
 __author__ = 'Steffen Schneider'
+__maintainer__ = 'Jon Morris'
 __version__ = '1.5.1'
 __copyright__ = 'Simplified BSD license'
 
@@ -557,7 +558,8 @@ def parse_args():
     return vars(parser.parse_args())
 
 
-def run_backpy(args):
+def run_backpy():
+    args = parse_args()
     start = datetime.now()
     set_up_logging(2 if args['verbose'] else 1)
     init(CONFIG_FILE)
@@ -614,6 +616,6 @@ def run_backpy(args):
 
 
 if __name__ == '__main__':
-    run_backpy(parse_args())
+    run_backpy()
 else:
     set_up_logging(0)  # set up default logging on import
