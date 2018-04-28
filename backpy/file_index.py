@@ -210,33 +210,38 @@ class FileIndex:
             line = file_info.split()
             f_size = None
             try:
-                f_permissions = line[0]
-                # f_owner = line[1]
-                # f_group = line[2]
-                if not f_permissions.startswith('d'):
-                    f_size = line[3]
-                    f_date = line[4]
-                    f_time = line[5]
-                    f_name = ' '.join(line[6:])
-                else:
-                    f_date = line[3]
-                    f_time = line[4]
-                    f_name = ' '.join(line[5:])
-                # check for slash before adding sub path
-                if path[-1] == '/':
-                    fullname = '%s%s' % (path, f_name)
-                else:
-                    fullname = '%s/%s' % (path, f_name)
-
-                if self.is_valid(fullname):
-                    if f_permissions.startswith('d'):
-                        # folder - add to list and search subfolders
-                        self.__dirs__.append(fullname)
-                        self.adb_read_folder(fullname)
-                    else:
-                        # file - hash and add to list
-                        digest = get_file_hash(fullname, f_date + f_time, f_size)
-                        if digest:
-                            self.__files__[fullname] = digest
+                f_permissions = line.pop(0)
+                if f_permissions == 'total':
+                    continue
+                # 2nd item may or may not be links, try converting to int
+                f_owner = line.pop(0)
+                try:
+                    f_links = int(f_owner)
+                    f_owner = line.pop(0)
+                except ValueError:
+                    pass
+                f_group = line.pop(0)
+                f_size = line.pop(0)
+                f_date = line.pop(0)
+                f_time = line.pop(0)
+                f_name = ' '.join(line)
             except IndexError:
                 logger.warning('could not extract info from %s' % file_info)
+                continue
+
+            # check for slash before adding sub path
+            if path[-1] == '/':
+                fullname = '%s%s' % (path, f_name)
+            else:
+                fullname = '%s/%s' % (path, f_name)
+
+            if self.is_valid(fullname):
+                if f_permissions.startswith('d'):
+                    # folder - add to list and search subfolders
+                    self.__dirs__.append(fullname)
+                    self.adb_read_folder(fullname)
+                else:
+                    # file - hash and add to list
+                    digest = get_file_hash(fullname, f_date + f_time, f_size)
+                    if digest:
+                        self.__files__[fullname] = digest
