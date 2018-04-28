@@ -55,7 +55,7 @@ from helpers import (
 from logger import logger, set_up_logging
 
 __author__ = 'Steffen Schneider'
-__version__ = '1.5.0'
+__version__ = '1.5.1'
 __copyright__ = 'Simplified BSD license'
 
 
