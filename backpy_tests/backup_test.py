@@ -1,13 +1,20 @@
 #!/usr/bin/python2
 # -*- coding: utf-8 -*-
+from __future__ import absolute_import, unicode_literals
 
-import backpy
-import common
+# Stdlib imports
 import os
 import unittest
+from datetime import datetime
+
+# Project imports
+import backpy
+from backpy.helpers import is_windows
+from backpy_tests.common import BackpyTest
 
 
-class BackupTest(common.BackpyTest):
+# pylint: disable=missing-docstring,invalid-name
+class BackupTest(BackpyTest):
 
     def setUp(self):
         # start test with blank config
@@ -171,6 +178,26 @@ class BackupTest(common.BackpyTest):
 
         self.assertEqual(zips_before, 1)
         self.assertEqual(zips_before, zips_after)
+
+    def test_get_timestamp(self):
+        """Test timestamp method"""
+        expected = datetime.now().strftime('%Y%m%d%H%M%S')
+        actual = backpy.Backup.get_timestamp()
+        self.assertEqual(expected, actual)
+
+    @unittest.skipUnless(is_windows(), 'Windows only')
+    def test_get_member_name_windows(self):
+        filepath = 'c:\\path\\to\\member'
+        expected = ('c:\\', 'path\\to\\member')
+        actual = backpy.Backup.get_member_name(filepath)
+        self.assertEqual(expected, actual)
+
+    @unittest.skipIf(is_windows(), '*nix only')
+    def test_get_member_name_unix(self):
+        filepath = '/path/to/member'
+        expected = ('/', 'path/to/member')
+        actual = backpy.Backup.get_member_name(filepath)
+        self.assertEqual(expected, actual)
 
 
 if __name__ == '__main__':

@@ -61,14 +61,15 @@ __copyright__ = 'Simplified BSD license'
 
 
 def read_backup(path):
-    logger.debug('reading backup %s' % path)
+    """Read a backup from disk and return as a Backup object"""
+    logger.debug('reading backup %s', path)
     timestamp = os.path.basename(path).split('_')[0]
     temp_path = os.path.join(TEMP_DIR, '.%sindex' % timestamp)
     try:
         with closing(tarfile.open(path, 'r:*')) as tar:
             tar.extract('.index', temp_path)
-    except Exception as e:
-        logger.error(e.message)
+    except Exception as ex:
+        logger.error(ex.message)
     finally:
         index = FileIndex(temp_path, reading=True)
         index.read_index(os.path.join(temp_path, '.index'))
@@ -78,6 +79,7 @@ def read_backup(path):
 
 
 def all_backups(path, reverse_order=True):
+    """Find all the backups in a directory"""
     logger.debug('finding previous backups')
     backups = []
     if os.path.isabs(path) is None:
@@ -92,11 +94,12 @@ def all_backups(path, reverse_order=True):
 
 
 def latest_backup(path):
+    """Find the newest backup in a directory"""
     backups = all_backups(path)
     if not backups:
         return None
     last_backup = backups[0]
-    logger.info('reading latest backup ({0}) for comparison'.format(last_backup))
+    logger.info('reading latest backup (%s) for comparison', last_backup)
     return read_backup(os.path.join(path, last_backup))
 
 
@@ -108,7 +111,7 @@ def get_config_index(dirlist, src, dest):
     :param dest: destination directory
     :return: index number of file or None if not found
     """
-    logger.debug('get index of %s, %s' % (src, dest))
+    logger.debug('get index of %s, %s', src, dest)
     for i in range(len(dirlist)):
         if len(dirlist[i]) >= 2:
             # normalise trailing slashes
@@ -116,13 +119,14 @@ def get_config_index(dirlist, src, dest):
             dest = os.path.normpath(dest)
             index_src = os.path.normpath(dirlist[i][0])
             index_dest = os.path.normpath(dirlist[i][1])
-            logger.debug('entry %d: %s, %s.' % (i, index_src, index_dest))
+            logger.debug('entry %d: %s, %s.', i, index_src, index_dest)
             if string_equals(index_src, src) and string_equals(index_dest, dest):
                 return i
     return None
 
 
 def read_directory_list(path):
+    """Get a list of directories from config file"""
     logger.debug('reading directories from config')
     dirs = []
     for line in get_config_key(path, DEFAULT_KEY):
@@ -131,11 +135,13 @@ def read_directory_list(path):
 
 
 def write_directory_list(path, dirlist):
+    """Write a list of directories to config file"""
     logger.debug('writing directories to config')
     update_config_file(path, DEFAULT_KEY, [','.join(line) for line in dirlist])
 
 
 def show_directory_list(dirs):
+    """Pretty print a list of directories and skips"""
     logger.info('backup directories:')
     index = 1
     for line in dirs:
@@ -194,6 +200,13 @@ def add_directory(path, src, dest):
 
 
 def delete_directory(path, src, dest, confirm=True):
+    """
+    Remove source and destination directories from the config file.
+    :param path: path to config file
+    :param src: source directory
+    :param dest: destination directory
+    :param confirm: ask user to confirm deletion
+    """
     logger.debug('removing entry source: %s, destination: %s' % (src, dest))
     dirs = read_directory_list(path)
     index = get_config_index(dirs, src, dest)
@@ -214,6 +227,13 @@ def delete_directory(path, src, dest, confirm=True):
 
 
 def delete_directory_by_index(path, index, dirs=None, confirm=True):
+    """
+    Remove entry from the config file.
+    :param path: path to config file
+    :param index: index of entry to remove
+    :param dirs: list of source and dest dirs. can be read from path if not given
+    :param confirm: ask user to confirm deletion
+    """
     if dirs is None:
         dirs = read_directory_list(path)
 
@@ -258,7 +278,7 @@ def delete_global_skip(path, skips):
     :param path: path to config file
     :param skips: list or comma-separated string of items to remove
     """
-    logger.debug('removing global skip {} from list'.format(skips))
+    logger.debug('removing global skip %s from list', skips)
     if not isinstance(skips, list):
         skips = skips.split(',')
     old_skips = get_config_key(path, SKIP_KEY)
@@ -277,6 +297,12 @@ def delete_global_skip(path, skips):
 
 
 def add_skip(path, skips, add_regex=None):
+    """
+    Add skips to config file
+    :param path: path to config file
+    :param skips: list or comma-separated string of items to remove
+    :param add_regex: if true, add asterisks to make skip into a regex
+    """
     if len(skips) < 3:
         print 'skip syntax: <src> <dest> <skip dir> {... <skip dir>}'
         print 'source and destination directories must be specified first'
@@ -286,7 +312,7 @@ def add_skip(path, skips, add_regex=None):
     dirs = read_directory_list(path)
     src = skips[0]
     dest = skips[1]
-    logger.info('adding skips to backup of %s to %s:' % (src, dest))
+    logger.info('adding skips to backup of %s to %s:', src, dest)
     if not os.path.isabs(src):
         logger.warning('relative path used for source dir, adding current dir')
         src = os.path.abspath(src)
@@ -302,21 +328,22 @@ def add_skip(path, skips, add_regex=None):
     for skip in skips[2:]:
         # if 'contains' option is used and regex hasn't already been added,
         # wrap skip string in any character regex
-        if add_regex and u'*' != skip[0] and u'*' != skip[-1]:
+        if add_regex and skip[0] != u'*' and skip[-1] != u'*':
             skip = u'*{0:s}*'.format(skip)
         if skip in line[2:]:
-            logger.error('%s already added, aborting' % skip)
+            logger.error('%s already added, aborting', skip)
             return
         if skip == line[0]:
-            logger.warning('%s would skip root dir, not added' % skip)
+            logger.warning('%s would skip root dir, not added', skip)
         else:
             line.append(skip)
-            logger.info('  %s' % skip)
+            logger.info('  %s', skip)
 
     write_directory_list(path, dirs)
 
 
 def perform_backup(directories, timestamp=None, adb=False):
+    """Run backup of selected directories"""
     if len(directories) < 2:
         logger.error('not enough directories to backup')
         logger.error(directories)
@@ -324,19 +351,19 @@ def perform_backup(directories, timestamp=None, adb=False):
     src = directories[0]
     dest = directories[1]
     skip = directories[2:] if len(directories) > 2 else None
-    logger.info('backup of directory {0} to {1}{2}'.format(src, dest, ' using adb' if adb else ''))
+    logger.info('backup of directory %s to %s%s', src, dest, ' using adb' if adb else '')
     if skip is not None:
-        logger.info('  skipping directories that match %s' % ' or '.join(skip))
+        logger.info('  skipping directories that match %s', ' or '.join(skip))
     # check dest exists before indexing
     if not os.path.exists(dest):
-        logger.warning('destination path %s not found, creating directory' % dest)
+        logger.warning('destination path %s not found, creating directory', dest)
         make_directory(dest)
         if not os.path.exists(dest):
             # make directory failed
             return
-    f = FileIndex(src, skip, adb=adb)
-    f.gen_index()
-    backup = Backup(dest, f, latest_backup(dest), timestamp)
+    fi = FileIndex(src, skip, adb=adb)
+    fi.gen_index()
+    backup = Backup(dest, fi, latest_backup(dest), timestamp)
     backup.write_to_disk()
 
 
@@ -349,7 +376,7 @@ def search_backup(path, filename, files, folders, exact_match=True):
     :param folders: array of folder names
     :param exact_match: true to match the name exactly, false for partial matches
     """
-    logger.debug('searching %s (exact=%s)' % (path, exact_match))
+    logger.debug('searching %s (exact=%s)', path, exact_match)
     last_hash = None
     last_backup = None
     # we don't know if user has entered a file or a folder, so search both
@@ -361,7 +388,7 @@ def search_backup(path, filename, files, folders, exact_match=True):
             if this_hash != last_hash:
                 if last_hash is not None:
                     # hash has changed, so add the backup
-                    logger.debug('hash %s changed, adding backup' % last_hash)
+                    logger.debug('hash %s changed, adding backup', last_hash)
                     files.append(last_backup)
                 last_hash = this_hash
         last_backup = this_backup
@@ -372,7 +399,7 @@ def search_backup(path, filename, files, folders, exact_match=True):
             folders.append(this_backup)
     # check if oldest backup needs to be added
     if last_hash is not None:
-        logger.debug('hash %s changed, adding backup' % last_hash)
+        logger.debug('hash %s changed, adding backup', last_hash)
         files.append(last_backup)
 
 
@@ -391,42 +418,43 @@ def find_file_in_backup(dirlist, filename, index=None):
 
     # try a few times to find file, with less strict criteria on each pass
     for attempt in xrange(4):
-        logger.debug('attempt %s' % attempt)
+        logger.debug('attempt %s', attempt)
         for dirs in dirlist:
             if 0 == attempt:
                 # check if input matches a config entry
                 if string_equals(dirs[0], filename):
-                    logger.debug('restoring all backups from %s' % dirs[0])
+                    logger.debug('restoring all backups from %s', dirs[0])
                     for zip_path in all_backups(dirs[1]):
-                        read_backup(os.path.join(dirs[1], zip_path)).restore_folder(filename)
+                        read_backup(os.path.join(dirs[1], zip_path)).restore_folder(filename,
+                                                                                    restore_path)
                     return
 
             if 1 == attempt:
                 # then look in all folders for exact string entered
                 if string_contains(dirs[0], filename) or string_contains(filename, dirs[0]):
                     searched.append(dirs)
-                    logger.debug('string contains, looking in %s' % dirs[1])
+                    logger.debug('string contains, looking in %s', dirs[1])
                     search_backup(dirs[1], filename, files, folders)
 
             if 2 == attempt:
                 # then look in remaining folders for exact string entered
                 if dirs not in searched:
-                    logger.debug('dirs not searched, looking in %s' % dirs[1])
+                    logger.debug('dirs not searched, looking in %s', dirs[1])
                     search_backup(dirs[1], filename, files, folders)
 
             if 3 == attempt:
                 # then look in all folders again in case partial path given
-                logger.debug('looking for partial match in %s' % dirs[1])
+                logger.debug('looking for partial match in %s', dirs[1])
                 search_backup(dirs[1], filename, files, folders, exact_match=False)
 
         # found something, restore it and return
         if files:
             # select version to restore
             if len(files) > 1:
-                logger.info('multiple versions of %s found:' % filename)
+                logger.info('multiple versions of %s found:', filename)
                 count = 1
                 for backup in files:
-                    logger.info('[%s] %s' % (count, backup.get_tarpath()))
+                    logger.info('[%s] %s', count, backup.get_tarpath())
                     count += 1
                 if index is None:
                     chosen = ''
@@ -436,22 +464,22 @@ def find_file_in_backup(dirlist, filename, index=None):
                         if not chosen:
                             return  # user has cancelled restore
                         index = int(chosen) - 1
-                        logger.debug('index=%s' % index)
+                        logger.debug('index=%s', index)
                         # now check index is valid
                         if index < 0 or index >= len(files):
                             raise IndexError
                     except (TypeError, IndexError, ValueError):
-                        logger.error('"%s" is not a valid choice' % chosen)
+                        logger.error('"%s" is not a valid choice', chosen)
                         return
             else:
-                logger.debug('one version of {0} found'.format(filename))
+                logger.debug('one version of %s found', filename)
                 if index is not None:
-                    logger.warning('ignoring index {0} and defaulting to 0'.format(index))
+                    logger.warning('ignoring index %s and defaulting to 0', index)
                 index = 0
             try:
                 files[index].restore_file(filename)
             except IndexError:
-                logger.error('index %s is not valid' % index)
+                logger.error('index %s is not valid', index)
                 return
         elif folders:
             # restore all folders, oldest first
@@ -464,7 +492,7 @@ def find_file_in_backup(dirlist, filename, index=None):
             logger.debug('files found, returning')
             return
 
-    logger.warning('%s not found' % filename)
+    logger.warning('%s not found', filename)
 
 
 def perform_restore(dirlist, files=None, chosen_index=None):
@@ -479,9 +507,9 @@ def perform_restore(dirlist, files=None, chosen_index=None):
                 find_file_in_backup([dirs], f, 0)
 
             # check all folders are present (i.e. empty folders)
-            for f in latest.get_index().dirs():
-                if not os.path.exists(f):
-                    make_directory(f)
+            for dirname in latest.get_index().dirs():
+                if not os.path.exists(dirname):
+                    make_directory(dirname)
     else:
         # check if first arg is an index
         match_index = re.match('#(\d+)', files[0])
@@ -493,17 +521,16 @@ def perform_restore(dirlist, files=None, chosen_index=None):
                 list_index = int(match_index.group(1))
                 dirlist = [dirlist[list_index - 1]]
             except (IndexError, TypeError):
-                logger.warning('restore index not valid: {0}'.format(match_index.groups()))
+                logger.warning('restore index not valid: %s', match_index.groups())
                 return
-        for f in files:
+        for filename in files:
             # restoring individual files/folders
-            logger.debug('looking for %s' % f)
-            # REMOVED: find_file_in_backup(dirlist, os.path.normpath(f), chosen_index)
-            # don't think normpath is needed, and it messes up adb
-            find_file_in_backup(dirlist, f, chosen_index)
+            logger.debug('looking for %s', filename)
+            find_file_in_backup(dirlist, filename, index=chosen_index, restore_path=restore_path)
 
 
 def init(file_config):
+    """Open the config file or create a new one if not found"""
     logger.debug('opening config file')
     try:
         if get_config_version(file_config):
@@ -515,6 +542,7 @@ def init(file_config):
 
 
 def parse_args():
+    """Build arg parser"""
     parser = ArgumentParser(description='Command line backup utility')
     parser.add_argument('-v', '--verbose', action='store_true', dest='verbose',
                         help='enable verbose logging')
@@ -559,6 +587,7 @@ def parse_args():
 
 
 def run_backpy():
+    """Run backpy from commandline args"""
     args = parse_args()
     start = datetime.now()
     set_up_logging(2 if args['verbose'] else 1)
@@ -567,7 +596,7 @@ def run_backpy():
     if (args['backup'] or args['restore'] or args['adb']) and not os.path.exists(TEMP_DIR):
         make_directory(TEMP_DIR)
     if args['show_version']:
-        logger.info('backpy version: %s' % __version__)
+        logger.info('backpy version: %s', __version__)
     elif args['list']:
         show_directory_list(backup_dirs)
     elif args['add_path']:
@@ -612,7 +641,7 @@ def run_backpy():
 
     if args['backup'] or args['restore'] or args['adb']:
         print ''
-        logger.info('done. elapsed time = %s' % (datetime.now() - start))
+        logger.info('done. elapsed time = %s', datetime.now() - start)
 
 
 if __name__ == '__main__':

@@ -24,6 +24,11 @@ class BackpyTest(unittest.TestCase):
     timestamp = 1000
 
     @classmethod
+    def shortDescription(cls):
+        """Stop nose writing docstrings instead of test names"""
+        pass
+
+    @classmethod
     def setUpClass(cls):
         backpy.set_up_logging(0)
         logging.disable(logging.CRITICAL)
@@ -96,7 +101,7 @@ class BackpyTest(unittest.TestCase):
 
     def file_contents(self, filename):
         with open(filename) as l:
-            return l.read()
+            return l.read().strip()
 
     def text_in_file(self, filename, text):
         return text in self.file_contents(filename)

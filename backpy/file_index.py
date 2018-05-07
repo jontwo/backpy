@@ -41,6 +41,7 @@ from helpers import (
     get_filename_index,
     get_folder_index,
     get_config_key,
+    is_windows,
     read_config_file
 )
 from logger import logger
@@ -82,7 +83,7 @@ class FileIndex:
             return False
         if self.__exclusion_rules__:
             for regex in self.__exclusion_rules__:
-                if os.getenv("OS") == "Windows_NT":
+                if is_windows():
                     if fnmatch.fnmatch(f, regex):
                         return False
                 else:
@@ -161,7 +162,7 @@ class FileIndex:
         logger.debug('READ INDEX %s', index)
         for k, v in index.iteritems():
             if k == 'adb':
-                self.__adb__ == bool(v)
+                self.__adb__ = v == 'True'
             elif k == 'files':
                 for f in v:
                     [fname, _hash] = f.split('@@@')
@@ -203,7 +204,8 @@ class FileIndex:
         """
         logger.debug('reading adb folder %s' % path)
         # check files in this folder
-        for out in subprocess.check_output(['adb', 'shell', 'ls', '-l', re.escape(path)]).split('\n'):
+        for out in subprocess.check_output(['adb', 'shell', 'ls', '-l',
+                                            re.escape(path)]).split('\n'):
             file_info = out.strip()
             if not len(file_info):
                 continue

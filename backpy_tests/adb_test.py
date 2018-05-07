@@ -3,7 +3,6 @@
 
 # StdLib imports
 import os
-import platform
 import re
 import subprocess
 import time
@@ -14,6 +13,7 @@ import backpy
 import backup_test
 import common
 import restore_test
+from backpy.helpers import is_windows
 
 
 def log_subprocess_output(pipe):
@@ -55,7 +55,7 @@ class AdbTest(common.BackpyTest):
     @classmethod
     def setUpClass(cls):
         # check adb is installed and one device is connected
-        adb_exe = 'adb.exe' if platform.system() == 'Windows' else 'adb'
+        adb_exe = 'adb.exe' if is_windows() else 'adb'
         got_adb = False
         for folder in os.getenv('PATH').split(os.pathsep):
             if os.path.exists(os.path.join(folder, adb_exe)):

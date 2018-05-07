@@ -5,7 +5,8 @@ dist/*
 backpy.egg-info/*
 *.pyc
 *.orig
-resources/dest_files/.backpy  
+resources/dest_files/.backpy
 .coverage
 coverage_*
 .noseids
+htmlcov/*

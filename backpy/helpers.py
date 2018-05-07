@@ -28,6 +28,7 @@ POSSIBILITY OF SUCH DAMAGE.
 """
 # StdLib imports
 import os
+import platform
 import re
 from hashlib import md5
 from shutil import rmtree
@@ -53,7 +54,7 @@ def delete_temp_files(path):
             os.chmod(path, 0o777)
             os.unlink(path)
         except OSError:
-            logger.warning('could not delete %s' % path)
+            logger.warning('could not delete %s', path)
         return
 
     if os.path.isdir(path):
@@ -61,11 +62,11 @@ def delete_temp_files(path):
             os.chmod(path, 0o777)
             rmtree(path)
         except OSError:
-            logger.warning('could not delete %s' % path)
+            logger.warning('could not delete %s', path)
 
 
 def make_directory(path):
-    logger.debug('making directory {0}'.format(path))
+    logger.debug('making directory %s', path)
     try:
         if os.path.pardir in path:
             os.mkdir(path)
@@ -84,7 +85,7 @@ def string_equals(s1, s2):
     :param s2: string to compare
     :return: true if the strings are equal, false if not
     """
-    if os.getenv("OS") == "Windows_NT":
+    if is_windows():
         s1 = s1.lower()
         s2 = s2.lower()
     return s1 == s2
@@ -97,7 +98,9 @@ def string_contains(s1, s2):
     :param s2: string to search in
     :return: true if s1 is found in s2, false if not
     """
-    if os.getenv("OS") == "Windows_NT":
+    if not s1 or not s2:
+        return False
+    if is_windows():
         s1 = s1.lower()
         s2 = s2.lower()
     return s1 in s2
@@ -110,7 +113,7 @@ def string_startswith(s1, s2):
     :param s2: string to search in
     :return: true if s2 starts with s1, false if not
     """
-    if os.getenv("OS") == "Windows_NT":
+    if is_windows():
         s1 = s1.lower()
         s2 = s2.lower()
     return s2.startswith(s1)
@@ -123,7 +126,7 @@ def list_contains(s1, l2):
     :param l2: list to search in
     :return: true if string is found in list, false if not
     """
-    if os.getenv("OS") == "Windows_NT":
+    if is_windows():
         s1 = s1.lower()
         l2 = map(str.lower, l2)
     return s1 in l2
@@ -137,7 +140,7 @@ def get_filename_index(s1, l2):
     :param l2: list to search in
     :return: index number of file or None if not found
     """
-    if os.getenv("OS") == "Windows_NT":
+    if is_windows():
         s1 = s1.lower()
         l2 = map(str.lower, l2)
     try:
@@ -154,7 +157,7 @@ def get_folder_index(s1, l2):
     :param l2: list to search in
     :return: index number of folder or None if not found
     """
-    if os.getenv("OS") == "Windows_NT":
+    if is_windows():
         s1 = s1.lower()
         l2 = map(str.lower, l2)
     while l2 != map(os.path.dirname, l2):
@@ -173,7 +176,7 @@ def handle_arg_spaces(old_args):
     """
     num_quotes = len(str(old_args)) - len(str(old_args).replace('\"', ''))
     if num_quotes % 2 != 0:
-        logger.error('mismatched quotes in input argument: %s' % old_args)
+        logger.error('mismatched quotes in input argument: %s', old_args)
     elif num_quotes != 0:
         in_quote = False
         rebuilt_args = []
@@ -223,13 +226,13 @@ def get_file_hash(fullname, size=None, ctime=None):
             with open(fullname) as f:
                 md5hash = md5(f.read())
         except (IOError, MemoryError):
-            logger.warning('could not process file: %s' % fullname)
+            logger.warning('could not process file: %s', fullname)
 
     return ''.join(['%x' % ord(h) for h in md5hash.digest()]) if md5hash else None
 
 
 def get_config_version(path):
-    version = get_config_key(CONFIG_FILE, VERSION_KEY)
+    version = get_config_key(path, VERSION_KEY)
     if version:
         return version[0]
     return 0
@@ -313,3 +316,9 @@ def get_config_key(path, key):
     """
     config = read_config_file(path)
     return config.get(key, [])
+
+
+def is_windows():
+    """Check current operating system is windows
+       Note: platform returns Linux/Darwin for linux/OSX"""
+    return platform.system() == 'Windows'
