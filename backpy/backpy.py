@@ -403,7 +403,7 @@ def search_backup(path, filename, files, folders, exact_match=True):
         files.append(last_backup)
 
 
-def find_file_in_backup(dirlist, filename, index=None):
+def find_file_in_backup(dirlist, filename, index=None, restore_path=None):
     """
     Look through all previous backups to find files or folders to restore
     :param dirlist: list of source/destination pairs to search through (taken from config file)
@@ -477,7 +477,7 @@ def find_file_in_backup(dirlist, filename, index=None):
                     logger.warning('ignoring index %s and defaulting to 0', index)
                 index = 0
             try:
-                files[index].restore_file(filename)
+                files[index].restore_file(filename, restore_path)
             except IndexError:
                 logger.error('index %s is not valid', index)
                 return
@@ -486,7 +486,7 @@ def find_file_in_backup(dirlist, filename, index=None):
             # (should have been discovered in date order)
             folders.reverse()
             for backup in folders:
-                backup.restore_folder(filename)
+                backup.restore_folder(filename, restore_path)
 
         if files or folders:
             logger.debug('files found, returning')
@@ -495,7 +495,16 @@ def find_file_in_backup(dirlist, filename, index=None):
     logger.warning('%s not found', filename)
 
 
-def perform_restore(dirlist, files=None, chosen_index=None):
+def perform_restore(dirlist, files=None, chosen_index=None, restore_path=None):
+    """
+    Restore files or folders
+    :param dirlist: list of source/destination pairs to search through (taken from config file)
+    :param files: list of files to restore. can be full path or just part of the name
+    :param chosen_index: used for unit testing. when multiple versions of a file are available,
+    automatically pick a specific backup. if not given, the user will be prompted for the version
+    to restore
+    :param restore_path: path to restore files and/or folders to, instead of original folder
+    """
     if not files:
         logger.debug('restoring all files')
         if chosen_index:
@@ -503,8 +512,8 @@ def perform_restore(dirlist, files=None, chosen_index=None):
         for dirs in dirlist:
             # restore each file present at time of last backup
             latest = latest_backup(dirs[1])
-            for f in latest.get_index().files():
-                find_file_in_backup([dirs], f, 0)
+            for filename in latest.get_index().files():
+                find_file_in_backup([dirs], filename, index=0, restore_path=restore_path)
 
             # check all folders are present (i.e. empty folders)
             for dirname in latest.get_index().dirs():
@@ -578,6 +587,10 @@ def parse_args():
                             'path or just the file name. leave blank to restore all. using #n as '
                             'first argument limits the search to just the config entry with the '
                             'given index (see list).')
+    group.add_argument('-t', '--temp-restore', metavar='path', nargs='+', dest='temp_restore',
+                       required=False,
+                       help='as restore, but with source and destination paths given as the first '
+                       ' two arguments, instead of read from the config file.')
     group.add_argument('-n', '--adb', '--android', nargs='+', dest='adb', metavar='path',
                        required=False,
                        help='backs up the connected android device to the given folder. defaults '
@@ -635,6 +648,15 @@ def run_backpy():
         perform_backup([source, args['adb'][0]], adb=True)
     elif args['restore'] is not None:
         perform_restore(backup_dirs, args['restore'])
+    elif args['temp_restore'] is not None:
+        paths = args['temp_restore']
+        if len(paths) < 2:
+            print ("not enough arguments to perform temp restore."
+                   "please specify source (location of existing backup)\n"
+                   "and destination (location to restore files to) and\n"
+                   "optionally, file(s) to be restored.")
+        else:
+            perform_restore(["", paths[1]], paths[2:], restore_path=paths[0])
     else:
         print "please specify a program option.\n" + \
               "invoke with --help for futher information."

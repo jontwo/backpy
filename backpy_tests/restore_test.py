@@ -199,9 +199,45 @@ class RestoreTest(common.BackpyTest):
         # check file is there
         self.assertIn('nine ten', self.get_files_in_one())
 
-        # 13. TODO do backup and restore using UNC paths
-        # should probably try this but not sure how, as user will have to set up a share prior to
-        # running test
+    # restore a file to a different location
+    def testRestoreFileToTempPath(self):
+        self.do_backup()
+
+        # original file path and contents
+        orig_path = os.path.join(self.src_root, 'one', 'nine ten')
+        expected_text = 'more text'
+        # file location inside zip
+        _, zip_path = backpy.Backup.get_member_name(orig_path)
+        # new restore path
+        restore_dir = os.path.join(backpy.TEMP_DIR, 'resources', 'alt_restore_dir')
+
+        # restore file to alternate path
+        backpy.perform_restore([["", os.path.join(self.dest_root, 'one')]], files=['nine ten'],
+                               restore_path=restore_dir)
+
+        # check restored file contents
+        actual_text = self.file_contents(os.path.join(restore_dir, zip_path))
+        self.assertEqual(expected_text, actual_text)
+
+    # restore a folder to a different location
+    def testRestoreFolderToTempPath(self):
+        self.do_backup()
+
+        # original folder path and file contents
+        orig_path = os.path.join(self.src_root, 'six seven')
+        expected_text = 'text'
+        # file location inside zip
+        _, zip_path = backpy.Backup.get_member_name(orig_path)
+        # new restore path
+        restore_dir = os.path.join(backpy.TEMP_DIR, 'resources', 'alt_restore_dir')
+
+        # restore file to alternate path
+        backpy.perform_restore([["", os.path.join(self.dest_root, 'six seven')]],
+                               restore_path=restore_dir)
+
+        # check restored file contents
+        actual_text = self.file_contents(os.path.join(restore_dir, zip_path, 'eight'))
+        self.assertEqual(expected_text, actual_text)
 
 
 if __name__ == '__main__':

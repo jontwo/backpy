@@ -165,15 +165,12 @@ class Backup(object):
         logger.debug('find folder %s', foldername)
         return self.__new_index__.is_folder(foldername, exact_match)
 
-    def get_missing_files(self):
+    def restore_folder(self, folder, restore_path=None):
         """
-        Find all the files that have been removed since the last backup
-        :return: list of missing files
+        Restore the selected folder to its original location on disk
+        :param folder: Name of folder to restore
         """
-        return filter(lambda x: x not in self.__old_index__, self.__new_index__)
-
-    def restore_folder(self, folder):
-        logger.debug('restoring folder %s from %s' % (folder, self.get_tarpath()))
+        logger.debug('restoring folder %s from %s', folder, self.get_tarpath())
         fullname = folder
         # get destination dir
         dest = os.path.dirname(folder)
@@ -193,14 +190,17 @@ class Backup(object):
 
         # restore changed and missing files
         for dest_file in self.__new_index__.files():
-            if string_startswith(fullname, dest_file) and (
-                dest_index.hash(dest_file) != self.__new_index__.hash(dest_file) or
-                dest_file not in dest_index.files()
-            ):
-                self.restore_file(dest_file)
+            if string_startswith(fullname, dest_file) and \
+                (dest_index.hash(dest_file) != self.__new_index__.hash(dest_file) or \
+                    dest_file not in dest_index.files()):
+                self.restore_file(dest_file, restore_path)
 
-    def restore_file(self, filename):
-        logger.debug('restoring file %s from %s' % (filename, self.get_tarpath()))
+    def restore_file(self, filename, restore_path=None):
+        """
+        Restore the selected file to its original location on disk
+        :param filename: Name of file to restore
+        """
+        logger.debug('restoring file %s from %s', filename, self.get_tarpath())
         fullname = filename
         # get destination dir
         dest = os.path.dirname(filename)
@@ -215,8 +215,13 @@ class Backup(object):
         logger.debug('got dest dir %s', dest)
 
         # restore if file changed or not found in dest
-        if os.path.exists(fullname):
-            if get_file_hash(fullname) == self.__new_index__.hash(fullname):
+        root_path, member_name = self.get_member_name(fullname)
+        if restore_path is not None:
+            # override root if restoring to temp folder
+            root_path = restore_path
+        dest_path = os.path.join(root_path, member_name)
+        if os.path.exists(dest_path):
+            if get_file_hash(dest_path) == self.__new_index__.hash(fullname):
                 logger.info('file unchanged, cancelling restore')
                 return
             else:
@@ -224,9 +229,8 @@ class Backup(object):
         else:
             logger.debug('file not found')
 
+        logger.info('restoring %s from %s', member_name, self.get_tarpath())
         with closing(tarfile.open(self.get_tarpath(), 'r:*')) as tar:
-            root_path, member_name = self.get_member_name(fullname)
-            logger.info('restoring %s from %s' % (member_name, self.get_tarpath()))
             if self.__adb__:
                 # extract files into temp folder before restoring to phone
                 file_info = tar.getmember(member_name)
