@@ -13,7 +13,6 @@ from backpy.helpers import is_windows
 from backpy_tests.common import BackpyTest
 
 
-# pylint: disable=missing-docstring,invalid-name
 class BackupTest(BackpyTest):
 
     def setUp(self):
@@ -188,7 +187,7 @@ class BackupTest(BackpyTest):
     @unittest.skipUnless(is_windows(), 'Windows only')
     def test_get_member_name_windows(self):
         filepath = 'c:\\path\\to\\member'
-        expected = ('c:\\', 'path\\to\\member')
+        expected = ('c:\\', 'path/to/member')
         actual = backpy.Backup.get_member_name(filepath)
         self.assertEqual(expected, actual)
 
