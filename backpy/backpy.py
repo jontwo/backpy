@@ -56,7 +56,7 @@ from logger import logger, set_up_logging
 
 __author__ = 'Steffen Schneider'
 __maintainer__ = 'Jon Morris'
-__version__ = '1.5.1'
+__version__ = '1.5.2'
 __copyright__ = 'Simplified BSD license'
 
 
@@ -140,7 +140,7 @@ def write_directory_list(path, dirlist):
     update_config_file(path, DEFAULT_KEY, [','.join(line) for line in dirlist])
 
 
-def show_directory_list(dirs):
+def show_directory_list(dirs):  # pragma: no cover
     """Pretty print a list of directories and skips"""
     logger.info('backup directories:')
     index = 1
@@ -238,7 +238,7 @@ def delete_directory_by_index(path, index, dirs=None, confirm=True):
         dirs = read_directory_list(path)
 
     try:
-        if confirm:
+        if confirm:  # pragma: no cover
             answer = raw_input(
                 'delete entry source: {0}, destination: {1} (y/n)?'.format(dirs[index][0],
                                                                            dirs[index][1]))
@@ -303,7 +303,7 @@ def add_skip(path, skips, add_regex=None):
     :param skips: list or comma-separated string of items to remove
     :param add_regex: if true, add asterisks to make skip into a regex
     """
-    if len(skips) < 3:
+    if len(skips) < 3:  # pragma: no cover
         print 'skip syntax: <src> <dest> <skip dir> {... <skip dir>}'
         print 'source and destination directories must be specified first'
         print 'then one or more skip directories can be added'
@@ -456,7 +456,7 @@ def find_file_in_backup(dirlist, filename, index=None, restore_path=None):
                 for backup in files:
                     logger.info('[%s] %s', count, backup.get_tarpath())
                     count += 1
-                if index is None:
+                if index is None:  # pragma: no cover
                     chosen = ''
                     try:
                         chosen = raw_input(
@@ -550,7 +550,7 @@ def init(file_config):
     update_config_file(file_config, VERSION_KEY, __version__)
 
 
-def parse_args():
+def parse_args():  # pragma: no cover
     """Build arg parser"""
     parser = ArgumentParser(description='Command line backup utility')
     parser.add_argument('-v', '--verbose', action='store_true', dest='verbose',
@@ -599,7 +599,7 @@ def parse_args():
     return vars(parser.parse_args())
 
 
-def run_backpy():
+def run_backpy():  # pragma: no cover
     """Run backpy from commandline args"""
     args = parse_args()
     start = datetime.now()
@@ -666,7 +666,7 @@ def run_backpy():
         logger.info('done. elapsed time = %s', datetime.now() - start)
 
 
-if __name__ == '__main__':
+if __name__ == '__main__':  # pragma: no cover
     run_backpy()
 else:
     set_up_logging(0)  # set up default logging on import

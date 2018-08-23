@@ -168,7 +168,7 @@ def get_folder_index(s1, l2):
     return None
 
 
-def handle_arg_spaces(old_args):
+def handle_arg_spaces(old_args):  # pragma: no cover
     """
     Some shells mess up the quoted input arguments, if so, reassemble them
     :param old_args: original input arguments

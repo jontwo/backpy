@@ -10,3 +10,4 @@ resources/dest_files/.backpy
 coverage_*
 .noseids
 htmlcov/*
+cover/*
