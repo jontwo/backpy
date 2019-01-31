@@ -36,6 +36,17 @@ logger = logging.getLogger('backpy')
 LOG_FILE = os.path.join(os.path.expanduser('~'), 'backpy.log')
 
 
+class SometimesRotatingFileHandler(logging.handlers.RotatingFileHandler):
+    """Custom class to handle windows file locks sometimes preventing file rollover.
+    If it does, just carry on and hope the lock will be released before the log file
+    fills up the drive..."""
+    def doRollover(self):
+        try:
+            super(SometimesRotatingFileHandler, self).doRollover()
+        except OSError:
+            pass
+
+
 class SpecialFormatter(logging.Formatter):
     FORMATS = {
         logging.DEBUG: "DEBUG: %(lineno)d: %(message)s",
@@ -67,7 +78,7 @@ def set_up_logging(level=1):
     # kill console output (i.e. during unit tests)
     if 0 != level:
         logger.addHandler(sh)
-    fh = logging.handlers.RotatingFileHandler(LOG_FILE, maxBytes=1000000, backupCount=3)
+    fh = SometimesRotatingFileHandler(LOG_FILE, maxBytes=1000000, backupCount=3)
     fh.setLevel(logging.DEBUG)
     ff = logging.Formatter('%(asctime)s: %(levelname)s: %(funcName)s: %(message)s')
     fh.setFormatter(ff)
