@@ -26,6 +26,7 @@ POSSIBILITY OF SUCH DAMAGE.
 
 """
 # StdLib imports
+import io
 import os
 import platform
 import re
@@ -222,8 +223,8 @@ def get_file_hash(fullname, size=None, ctime=None):
             md5hash.update(str(ctime).encode('latin1'))
     else:
         try:
-            with open(fullname) as f:
-                md5hash = md5(f.read().encode('latin1'))
+            with io.open(fullname, encoding='latin1') as f:
+                md5hash = md5(f.read().encode('latin1', errors='ignore'))
         except (IOError, MemoryError):
             logger.warning('could not process file: %s', fullname)
 
