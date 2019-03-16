@@ -76,6 +76,13 @@ class BackpyTest(unittest.TestCase):
         # copy resources
         copytree(os.path.join(self.project_dir, 'resources'), res_dir)
 
+    def assertCountEqual(self, actual, expected, msg=None):
+        """Handle method rename between python 2 and python 3"""
+        try:
+            super(BackpyTest, self).assertCountEqual(actual, expected, msg)
+        except AttributeError:
+            self.assertItemsEqual(actual, expected, msg)
+
     # source dir - rel_path is just to test users adding relative path to
     # config file. should mostly use abs path (the files that were copied
     # to temp folder) so files can be altered if needed
