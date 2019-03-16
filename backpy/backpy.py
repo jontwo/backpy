@@ -55,7 +55,7 @@ from .logger import logger, set_up_logging
 
 __author__ = 'Steffen Schneider'
 __maintainer__ = 'Jon Morris'
-__version__ = '1.5.2'
+__version__ = '1.6.0'
 __copyright__ = 'Simplified BSD license'
 
 
