@@ -1,4 +1,3 @@
-#!/usr/bin/python2
 # -*- coding: utf-8 -*-
 """
 Copyright (c) 2012, Steffen Schneider <stes94@ymail.com>
@@ -35,8 +34,8 @@ from contextlib import closing
 from datetime import datetime
 
 # Project imports
-from file_index import FileIndex
-from helpers import (
+from .file_index import FileIndex
+from .helpers import (
     CONFIG_FILE,
     delete_temp_files,
     get_file_hash,
@@ -45,7 +44,7 @@ from helpers import (
     string_startswith,
     is_windows
 )
-from logger import logger
+from .logger import logger
 
 TEMP_DIR = os.path.join(tempfile.gettempdir(), 'backpy')
 

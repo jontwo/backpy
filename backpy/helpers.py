@@ -1,4 +1,3 @@
-#!/usr/bin/python2
 # -*- coding: utf-8 -*-
 """
 Copyright (c) 2012, Steffen Schneider <stes94@ymail.com>
@@ -34,7 +33,7 @@ from hashlib import md5
 from shutil import rmtree
 
 # Project imports
-from logger import logger
+from .logger import logger
 
 DEFAULT_KEY = 'default'
 SKIP_KEY = 'global skips'
@@ -128,7 +127,7 @@ def list_contains(s1, l2):
     """
     if is_windows():
         s1 = s1.lower()
-        l2 = map(str.lower, l2)
+        l2 = [l.lower() for l in l2]
     return s1 in l2
 
 
@@ -142,9 +141,9 @@ def get_filename_index(s1, l2):
     """
     if is_windows():
         s1 = s1.lower()
-        l2 = map(str.lower, l2)
+        l2 = [l.lower() for l in l2]
     try:
-        return map(os.path.basename, l2).index(s1)
+        return [os.path.basename(l) for l in l2].index(s1)
     except ValueError:
         return None
 
@@ -159,16 +158,16 @@ def get_folder_index(s1, l2):
     """
     if is_windows():
         s1 = s1.lower()
-        l2 = map(str.lower, l2)
-    while l2 != map(os.path.dirname, l2):
+        l2 = [l.lower() for l in l2]
+    while l2 != [os.path.dirname(l) for l in l2]:
         try:
-            return map(os.path.basename, l2).index(s1)
+            return [os.path.basename(l) for l in l2].index(s1)
         except ValueError:
-            l2 = map(os.path.dirname, l2)
+            l2 = [os.path.dirname(l) for l in l2]
     return None
 
 
-def handle_arg_spaces(old_args):  # pragma: no cover
+def handle_arg_spaces(old_args):
     """
     Some shells mess up the quoted input arguments, if so, reassemble them
     :param old_args: original input arguments
@@ -216,19 +215,19 @@ def get_file_hash(fullname, size=None, ctime=None):
     """
     md5hash = None
     if size or ctime:
-        md5hash = md5(fullname)
+        md5hash = md5(fullname.encode('latin1'))
         if size:
-            md5hash.update(str(size))
+            md5hash.update(str(size).encode('latin1'))
         if ctime:
-            md5hash.update(str(ctime))
+            md5hash.update(str(ctime).encode('latin1'))
     else:
         try:
             with open(fullname) as f:
-                md5hash = md5(f.read())
+                md5hash = md5(f.read().encode('latin1'))
         except (IOError, MemoryError):
             logger.warning('could not process file: %s', fullname)
 
-    return ''.join(['%x' % ord(h) for h in md5hash.digest()]) if md5hash else None
+    return md5hash.hexdigest() if md5hash else None
 
 
 def get_config_version(path):
@@ -276,7 +275,7 @@ def write_config_file(path, values):
     logger.debug('writing values to config: %s', values)
     try:
         with open(path, "w+") as l:
-            for k, v in values.iteritems():
+            for k, v in values.items():
                 l.write('[{}]\n'.format(k))
                 for item in v:
                     l.write('{}\n'.format(item))

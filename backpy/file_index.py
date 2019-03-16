@@ -1,4 +1,3 @@
-#!/usr/bin/python2
 # -*- coding: utf-8 -*-
 """
 Copyright (c) 2012, Steffen Schneider <stes94@ymail.com>
@@ -33,7 +32,7 @@ import re
 import subprocess
 
 # Project imports
-from helpers import (
+from .helpers import (
     CONFIG_FILE,
     SKIP_KEY,
     list_contains,
@@ -44,7 +43,7 @@ from helpers import (
     is_windows,
     read_config_file
 )
-from logger import logger
+from .logger import logger
 
 ANDROID_SKIPS = os.path.join(os.path.expanduser('~'), '.androidSkipFolders')
 
@@ -118,7 +117,7 @@ class FileIndex:
                     self.__files__[fullname] = digest
 
     def files(self):
-        return self.__files__.keys()
+        return list(self.__files__.keys())
 
     def dirs(self):
         return self.__dirs__
@@ -160,7 +159,7 @@ class FileIndex:
             return
         index = read_config_file(path)
         logger.debug('READ INDEX %s', index)
-        for k, v in index.iteritems():
+        for k, v in index.items():
             if k == 'adb':
                 self.__adb__ = v == 'True'
             elif k == 'files':
@@ -194,7 +193,7 @@ class FileIndex:
     def get_missing(self, index=None):
         if not index:
             return []
-        return filter(lambda x: x not in self.files(), index.files())
+        return [x for x in index.files() if x not in self.files()]
 
     def adb_read_folder(self, path):
         """

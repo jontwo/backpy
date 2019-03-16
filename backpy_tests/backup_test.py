@@ -1,6 +1,5 @@
-#!/usr/bin/python2
 # -*- coding: utf-8 -*-
-from __future__ import absolute_import, unicode_literals
+
 
 # Stdlib imports
 import os

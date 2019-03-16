@@ -1,4 +1,3 @@
-#!/usr/bin/python2
 # -*- coding: utf-8 -*-
 
 # StdLib Imports
@@ -7,7 +6,7 @@ import unittest
 
 # Project Imports
 import backpy
-import common
+from . import common
 
 
 class HelpersTest(common.BackpyTest):
@@ -118,9 +117,27 @@ class HelpersTest(common.BackpyTest):
 
         self.assertIsNone(backpy.helpers.get_folder_index(string_1, list_2))
 
+    def testHandleArgSpaces(self):
+        src = os.path.join(self.project_dir, 'resources', 'source_files', 'six')
+        dest = os.path.join(self.dest_root, 'six')
+        args = ['backpy', '-a', '\"' + src, 'seven\"', '\"' + dest, 'seven\"']
+        expected = ['backpy', '-a', '{} seven'.format(src), '{} seven'.format(dest)]
+
+        actual = backpy.helpers.handle_arg_spaces(args)
+
+        self.assertEqual(expected, actual)
+
+    def testHandleArgSpacesMismatchedQuotes(self):
+        expected = ['some', '\"string', 'with\"', 'mismatched\"', 'quotes']
+
+        # should come back unchanged
+        actual = backpy.helpers.handle_arg_spaces(expected)
+
+        self.assertEqual(expected, actual)
+
     def testGetFileHashFilename(self):
         filename = os.path.join(self.src_root, 'three')
-        expected_hash = '4d93d51945b88325c21364ef59fc5b'
+        expected_hash = '4d93d51945b88325c213640ef59fc50b'
 
         actual_hash = backpy.helpers.get_file_hash(filename)
 
@@ -129,7 +146,7 @@ class HelpersTest(common.BackpyTest):
     def testGetFileHashSize(self):
         filename = 'some file'
         filesize = 100
-        expected_hash = 'dee6421b215a8579c17d174c964e1e8'
+        expected_hash = 'dee6421b215a8579c17d1704c964e1e8'
 
         actual_hash = backpy.helpers.get_file_hash(filename, size=filesize)
 
@@ -165,21 +182,21 @@ class HelpersTest(common.BackpyTest):
 
         actual_skips = backpy.helpers.get_config_key(backpy.CONFIG_FILE, backpy.helpers.SKIP_KEY)
 
-        self.assertItemsEqual(expected_skips, actual_skips)
+        self.assertCountEqual(expected_skips, actual_skips)
 
     def testGetConfigKeyNotFound(self):
         expected_value = []
 
         actual_value = backpy.helpers.get_config_key(backpy.CONFIG_FILE, 'not found')
 
-        self.assertItemsEqual(expected_value, actual_value)
+        self.assertCountEqual(expected_value, actual_value)
 
     def testGetConfigKeyBadPath(self):
         expected_value = []
 
         actual_value = backpy.helpers.get_config_key('some file', 'not found')
 
-        self.assertItemsEqual(expected_value, actual_value)
+        self.assertCountEqual(expected_value, actual_value)
 
     def testReadConfigFile(self):
         expected_values = self.test_config_dict
@@ -188,14 +205,14 @@ class HelpersTest(common.BackpyTest):
 
         actual_values = backpy.helpers.read_config_file(self.config_path)
 
-        self.assertItemsEqual(expected_values, actual_values)
+        self.assertCountEqual(expected_values, actual_values)
 
     def testReadConfigFileBadPath(self):
         expected_values = {'default': []}
 
         actual_values = backpy.helpers.read_config_file('')
 
-        self.assertItemsEqual(expected_values, actual_values)
+        self.assertCountEqual(expected_values, actual_values)
 
     def testWriteConfigFile(self):
         # turn strings into lists so order is not important
@@ -205,7 +222,7 @@ class HelpersTest(common.BackpyTest):
         with open(self.config_path) as f:
             actual_contents = f.read().split('\n')
 
-        self.assertItemsEqual(expected_contents, actual_contents)
+        self.assertCountEqual(expected_contents, actual_contents)
 
     def testWriteConfigFileBadPath(self):
         try:
@@ -222,7 +239,7 @@ class HelpersTest(common.BackpyTest):
         with open(self.config_path) as f:
             actual_contents = f.read().split('\n')
 
-        self.assertItemsEqual(expected_contents, actual_contents)
+        self.assertCountEqual(expected_contents, actual_contents)
 
     def testUpdateConfigFileNewKey(self):
         with open(self.config_path, 'w+') as f:
@@ -235,7 +252,7 @@ class HelpersTest(common.BackpyTest):
         with open(self.config_path) as f:
             actual_contents = f.read().split('\n')
 
-        self.assertItemsEqual(expected_contents, actual_contents)
+        self.assertCountEqual(expected_contents, actual_contents)
 
     def testUpdateConfigFileAppendKey(self):
         with open(self.config_path, 'w+') as f:
@@ -246,7 +263,7 @@ class HelpersTest(common.BackpyTest):
         with open(self.config_path) as f:
             actual_contents = f.read().split('\n')
 
-        self.assertItemsEqual(expected_contents, actual_contents)
+        self.assertCountEqual(expected_contents, actual_contents)
 
     def testUpdateConfigFileAppendKeySameValue(self):
         with open(self.config_path, 'w+') as f:
@@ -257,7 +274,7 @@ class HelpersTest(common.BackpyTest):
         with open(self.config_path) as f:
             actual_contents = f.read().split('\n')
 
-        self.assertItemsEqual(expected_contents, actual_contents)
+        self.assertCountEqual(expected_contents, actual_contents)
 
 if __name__ == '__main__':
     suite = unittest.TestLoader().loadTestsFromTestCase(HelpersTest)

@@ -1,8 +1,7 @@
-#!/usr/bin/python2
 # -*- coding: utf-8 -*-
 
 import backpy
-import common
+from . import common
 import os
 import unittest
 

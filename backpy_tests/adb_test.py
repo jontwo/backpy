@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
 # StdLib imports
@@ -10,9 +9,9 @@ import unittest
 
 # Project imports
 import backpy
-import backup_test
-import common
-import restore_test
+from . import backup_test
+from . import common
+from . import restore_test
 from backpy.helpers import is_windows
 
 
@@ -48,7 +47,7 @@ def list_files(folder):
     files = subprocess.check_output(
         ['adb', 'shell', 'ls', folder]
     ).split('\n')
-    return map(str.strip, files)
+    return list(map(str.strip, files))
 
 
 class AdbTest(common.BackpyTest):

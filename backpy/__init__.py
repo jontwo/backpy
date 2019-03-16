@@ -1,2 +1,1 @@
-
-from backpy import *
+from .backpy import *

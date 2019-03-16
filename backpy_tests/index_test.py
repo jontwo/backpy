@@ -1,4 +1,3 @@
-#!/usr/bin/python2
 # -*- coding: utf-8 -*-
 
 # StdLib Imports
@@ -59,14 +58,14 @@ class IndexTest(BackpyTest):
 
         actual_files = self.index.files()
 
-        self.assertItemsEqual(expected_files, actual_files)
+        self.assertCountEqual(expected_files, actual_files)
 
     def testListDirs(self):
         expected_dirs = self.list_all_dirs()
 
         actual_dirs = self.index.dirs()
 
-        self.assertItemsEqual(expected_dirs, actual_dirs)
+        self.assertCountEqual(expected_dirs, actual_dirs)
 
     def testSkips(self):
         # create fresh index with exclusions
@@ -75,7 +74,7 @@ class IndexTest(BackpyTest):
 
         actual_rules = index.skips()
 
-        self.assertItemsEqual(expected_rules, actual_rules)
+        self.assertCountEqual(expected_rules, actual_rules)
 
     def testGlobalSkips(self):
         # create fresh index with exclusions
@@ -87,7 +86,7 @@ class IndexTest(BackpyTest):
 
         actual_rules = index.skips()
 
-        self.assertItemsEqual(expected_rules, actual_rules)
+        self.assertCountEqual(expected_rules, actual_rules)
 
     def testIsValidBadFile(self):
         self.assertFalse(self.index.is_valid('bad file'))
@@ -143,7 +142,7 @@ class IndexTest(BackpyTest):
 
         actual_diff = self.index.get_diff()
 
-        self.assertItemsEqual(expected_diff, actual_diff)
+        self.assertCountEqual(expected_diff, actual_diff)
 
     def testGetDiffNoChange(self):
         expected_diff = []
@@ -207,8 +206,7 @@ class IndexTest(BackpyTest):
         actual_text = self.file_contents(tmp_path)
         if is_windows():
             expected_text = self.index_to_windows_paths(expected_text, is_str=True)
-
-        self.assertItemsEqual(expected_text, actual_text)
+        self.assertCountEqual(expected_text, actual_text)
 
     @unittest.skip("src_root added to index twice")
     # Note: this test currently fails, as src_root is added twice to the index
@@ -223,13 +221,13 @@ class IndexTest(BackpyTest):
         actual_files = index.files()
         if is_windows():
             actual_files = self.index_to_windows_paths(actual_files)
-        self.assertItemsEqual(expected_files, actual_files)
+        self.assertCountEqual(expected_files, actual_files)
 
         expected_dirs = self.list_all_dirs()
         actual_dirs = index.dirs()
         if is_windows():
             actual_dirs = self.index_to_windows_paths(actual_dirs)
-        self.assertItemsEqual(expected_dirs, actual_dirs)
+        self.assertCountEqual(expected_dirs, actual_dirs)
 
     def testReadIndexNotFound(self):
         # create a new index and try to read non-existant index file
@@ -239,12 +237,12 @@ class IndexTest(BackpyTest):
         # check files and dirs
         expected_files = []
         actual_files = index.files()
-        self.assertItemsEqual(expected_files, actual_files)
+        self.assertCountEqual(expected_files, actual_files)
 
         # source is always added
         expected_dirs = [self.src_root]
         actual_dirs = index.dirs()
-        self.assertItemsEqual(expected_dirs, actual_dirs)
+        self.assertCountEqual(expected_dirs, actual_dirs)
 
     def testReadIndex150(self):
         # create a new index and read existing (new style) index file
@@ -257,7 +255,7 @@ class IndexTest(BackpyTest):
         actual_files = index.files()
         if is_windows():
             actual_files = self.index_to_windows_paths(actual_files)
-        self.assertItemsEqual(expected_files, actual_files)
+        self.assertCountEqual(expected_files, actual_files)
 
     def testReadIndexCheckAdb(self):
         # create a new index and read existing (new style) index file

@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
 # StdLib Imports
@@ -8,7 +7,7 @@ import unittest
 
 # Project Imports
 import backpy
-import common
+from . import common
 from backpy.helpers import get_config_key, SKIP_KEY
 
 
@@ -117,26 +116,6 @@ class ConfigTest(common.BackpyTest):
         size_after = self.get_file_size(backpy.CONFIG_FILE)
         self.assertEqual(size_after, size_before)
 
-    # try to add a folder that contains spaces in the name,
-    # calling backpy from command line
-    def testAddFolderViaCommandLine(self):
-        size_before = self.get_file_size(backpy.CONFIG_FILE)
-        # use rel path for source so can search config file for text
-        src = os.path.join(self.project_dir, 'resources', 'source_files', 'six')
-        dest = os.path.join(self.dest_root, 'six')
-        backpy_py = os.path.join(self.project_dir, 'backpy', 'backpy.py')
-        # add part of name here to ensure spaces are passed in
-        subprocess.check_output(
-            [
-                'python', backpy_py, '-a', '\"' + src,
-                'seven\"', '\"' + dest, 'seven\"'
-            ]
-        )
-
-        size_after = self.get_file_size(backpy.CONFIG_FILE)
-        self.assertGreater(size_after, size_before)
-        self.assertTrue(self.text_in_file(backpy.CONFIG_FILE, src))
-
     def testAddGlobalSkipAsString(self):
         expected_skips = ['1,2,3']
 
@@ -144,7 +123,7 @@ class ConfigTest(common.BackpyTest):
 
         actual_skips = get_config_key(backpy.CONFIG_FILE, SKIP_KEY)
 
-        self.assertItemsEqual(expected_skips, actual_skips)
+        self.assertCountEqual(expected_skips, actual_skips)
 
     def testAddGlobalSkipWithWildcards(self):
         expected_skips = ['*.abc,*.def']
@@ -153,7 +132,7 @@ class ConfigTest(common.BackpyTest):
 
         actual_skips = get_config_key(backpy.CONFIG_FILE, SKIP_KEY)
 
-        self.assertItemsEqual(expected_skips, actual_skips)
+        self.assertCountEqual(expected_skips, actual_skips)
 
     def testAppendGlobalSkip(self):
         expected_skips = ['one,two,three']
@@ -162,7 +141,7 @@ class ConfigTest(common.BackpyTest):
 
         actual_skips = get_config_key(backpy.CONFIG_FILE, SKIP_KEY)
 
-        self.assertItemsEqual(expected_skips, actual_skips)
+        self.assertCountEqual(expected_skips, actual_skips)
 
     def testAddGlobalSkipAsItems(self):
         expected_skips = ['1', '2', '3']
@@ -171,7 +150,7 @@ class ConfigTest(common.BackpyTest):
 
         actual_skips = get_config_key(backpy.CONFIG_FILE, SKIP_KEY)
 
-        self.assertItemsEqual([','.join(expected_skips)], actual_skips)
+        self.assertCountEqual([','.join(expected_skips)], actual_skips)
 
     def testRemoveGlobalSkip(self):
         added_skips = ['1,2,3,4']
@@ -182,7 +161,7 @@ class ConfigTest(common.BackpyTest):
 
         actual_skips = get_config_key(backpy.CONFIG_FILE, SKIP_KEY)
 
-        self.assertItemsEqual(expected_skips, actual_skips)
+        self.assertCountEqual(expected_skips, actual_skips)
 
     def testRemoveGlobalSkips(self):
         added_skips = ['1,2,3,4']
@@ -194,7 +173,7 @@ class ConfigTest(common.BackpyTest):
 
         actual_skips = get_config_key(backpy.CONFIG_FILE, SKIP_KEY)
 
-        self.assertItemsEqual(expected_skips, actual_skips)
+        self.assertCountEqual(expected_skips, actual_skips)
 
 if __name__ == '__main__':
     suite = unittest.TestLoader().loadTestsFromTestCase(ConfigTest)

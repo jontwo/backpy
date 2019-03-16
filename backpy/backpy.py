@@ -1,4 +1,3 @@
-#!/usr/bin/python2
 # -*- coding: utf-8 -*-
 """
 Copyright (c) 2012, Steffen Schneider <stes94@ymail.com>
@@ -35,9 +34,9 @@ from contextlib import closing
 from datetime import datetime
 
 # Project imports
-from backup import Backup, TEMP_DIR
-from file_index import FileIndex
-from helpers import (
+from .backup import Backup, TEMP_DIR
+from .file_index import FileIndex
+from .helpers import (
     CONFIG_FILE,
     DEFAULT_KEY,
     SKIP_KEY,
@@ -52,7 +51,7 @@ from helpers import (
     string_equals,
     update_config_file
 )
-from logger import logger, set_up_logging
+from .logger import logger, set_up_logging
 
 __author__ = 'Steffen Schneider'
 __maintainer__ = 'Jon Morris'
@@ -239,7 +238,7 @@ def delete_directory_by_index(path, index, dirs=None, confirm=True):
 
     try:
         if confirm:  # pragma: no cover
-            answer = raw_input(
+            answer = input(
                 'delete entry source: {0}, destination: {1} (y/n)?'.format(dirs[index][0],
                                                                            dirs[index][1]))
             if answer.lower() != 'y':
@@ -304,10 +303,10 @@ def add_skip(path, skips, add_regex=None):
     :param add_regex: if true, add asterisks to make skip into a regex
     """
     if len(skips) < 3:  # pragma: no cover
-        print 'skip syntax: <src> <dest> <skip dir> {... <skip dir>}'
-        print 'source and destination directories must be specified first'
-        print 'then one or more skip directories can be added'
-        print 'note: -s "*<string>*" is equivalent to -c "<string>"'
+        print('skip syntax: <src> <dest> <skip dir> {... <skip dir>}')
+        print('source and destination directories must be specified first')
+        print('then one or more skip directories can be added')
+        print('note: -s "*<string>*" is equivalent to -c "<string>"')
         return
     dirs = read_directory_list(path)
     src = skips[0]
@@ -328,8 +327,8 @@ def add_skip(path, skips, add_regex=None):
     for skip in skips[2:]:
         # if 'contains' option is used and regex hasn't already been added,
         # wrap skip string in any character regex
-        if add_regex and skip[0] != u'*' and skip[-1] != u'*':
-            skip = u'*{0:s}*'.format(skip)
+        if add_regex and skip[0] != '*' and skip[-1] != '*':
+            skip = '*{0:s}*'.format(skip)
         if skip in line[2:]:
             logger.error('%s already added, aborting', skip)
             return
@@ -417,7 +416,7 @@ def find_file_in_backup(dirlist, filename, index=None, restore_path=None):
     searched = []
 
     # try a few times to find file, with less strict criteria on each pass
-    for attempt in xrange(4):
+    for attempt in range(4):
         logger.debug('attempt %s', attempt)
         for dirs in dirlist:
             if 0 == attempt:
@@ -459,7 +458,7 @@ def find_file_in_backup(dirlist, filename, index=None, restore_path=None):
                 if index is None:  # pragma: no cover
                     chosen = ''
                     try:
-                        chosen = raw_input(
+                        chosen = input(
                             'please choose a version to restore (leave blank to cancel):')
                         if not chosen:
                             return  # user has cancelled restore
@@ -639,7 +638,7 @@ def run_backpy():  # pragma: no cover
         delete_global_skip(CONFIG_FILE, args['delete_global_skip'])
     elif args['backup']:
         for directory in backup_dirs:
-            print ''
+            print('')
             perform_backup(directory)
     elif args['adb']:
         source = '/sdcard/'
@@ -658,11 +657,11 @@ def run_backpy():  # pragma: no cover
         else:
             perform_restore(["", paths[1]], paths[2:], restore_path=paths[0])
     else:
-        print "please specify a program option.\n" + \
-              "invoke with --help for futher information."
+        print("please specify a program option.\n" + \
+              "invoke with --help for futher information.")
 
     if args['backup'] or args['restore'] or args['adb']:
-        print ''
+        print('')
         logger.info('done. elapsed time = %s', datetime.now() - start)
 
 
