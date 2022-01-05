@@ -112,7 +112,7 @@ class FileIndex:
             for filename in filenames:
                 fullname = os.path.join(dirname, filename)
                 if not self.is_valid(fullname):
-                    logger.debug('skipping file: %s', fullname)
+                    # logger.debug('skipping file: %s', fullname)  # noqa: E800
                     continue
                 digest = get_file_hash(fullname)
                 if digest:
