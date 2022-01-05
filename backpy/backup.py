@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Copyright (c) 2012, Steffen Schneider <stes94@ymail.com>
 All rights reserved.
@@ -25,7 +24,7 @@ ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE.
 
 """
-# StdLib imports
+
 import os
 import subprocess
 import tarfile
@@ -33,7 +32,6 @@ import tempfile
 from contextlib import closing
 from datetime import datetime
 
-# Project imports
 from .file_index import FileIndex
 from .helpers import (
     CONFIG_FILE,
@@ -41,8 +39,8 @@ from .helpers import (
     get_file_hash,
     get_filename_index,
     get_folder_index,
-    string_startswith,
-    is_windows
+    is_windows,
+    string_startswith
 )
 from .logger import logger
 
@@ -95,7 +93,7 @@ class Backup(object):
             # write files
             for fname in self.__new_index__.get_diff(self.__old_index__):
                 logger.info('adding %s...', fname)
-                if self.__adb__:
+                if self.__adb__:  # pragma: no cover
                     # pull files off phone into temp folder before backing up
                     temp_path = os.path.join(TEMP_DIR, '.%s_adb' % self.__timestamp__)
                     # replace file root with temp path
@@ -124,7 +122,7 @@ class Backup(object):
                     added += 1
 
             # backup current config file
-            if self.__adb__:
+            if self.__adb__:  # pragma: no cover
                 # create dummy file for this backup only
                 temp_config = os.path.join(TEMP_DIR, 'dummy_config')
                 with open(temp_config, 'w') as dummy:
@@ -147,17 +145,17 @@ class Backup(object):
     def contains_file(self, filename, exact_match=True):
         """
         Look for a specific file in the index
-        :param f: name of file
+        :param filename: name of file
         :param exact_match: true to match the name exactly, false for partial matches
         :return: the file hash or None if not found
         """
         logger.debug('find file %s', filename)
-        return self.__new_index__.hash(filename, exact_match)
+        return self.__new_index__.file_hash(filename, exact_match)
 
     def contains_folder(self, foldername, exact_match=True):
         """
         Look for a specific folder in the index
-        :param f: name of folder
+        :param foldername: name of folder
         :param exact_match: true to match the name exactly, false for partial matches
         :return: true if f is in the index, false if not
         """
@@ -168,6 +166,7 @@ class Backup(object):
         """
         Restore the selected folder to its original location on disk
         :param folder: Name of folder to restore
+        :param restore_path: An alternative location to restore to
         """
         logger.debug('restoring folder %s from %s', folder, self.get_tarpath())
         fullname = folder
@@ -190,14 +189,15 @@ class Backup(object):
         # restore changed and missing files
         for dest_file in self.__new_index__.files():
             if string_startswith(fullname, dest_file) and \
-                (dest_index.hash(dest_file) != self.__new_index__.hash(dest_file) or \
-                    dest_file not in dest_index.files()):
+                (dest_index.file_hash(dest_file) != self.__new_index__.file_hash(dest_file) or
+                 dest_file not in dest_index.files()):
                 self.restore_file(dest_file, restore_path)
 
     def restore_file(self, filename, restore_path=None):
         """
         Restore the selected file to its original location on disk
         :param filename: Name of file to restore
+        :param restore_path: An alternative location to restore to
         """
         logger.debug('restoring file %s from %s', filename, self.get_tarpath())
         fullname = filename
@@ -220,7 +220,7 @@ class Backup(object):
             root_path = restore_path
         dest_path = os.path.join(root_path, member_name)
         if os.path.exists(dest_path):
-            if get_file_hash(dest_path) == self.__new_index__.hash(fullname):
+            if get_file_hash(dest_path) == self.__new_index__.file_hash(fullname):
                 logger.info('file unchanged, cancelling restore')
                 return
             else:
@@ -230,7 +230,7 @@ class Backup(object):
 
         logger.info('restoring %s from %s', member_name, self.get_tarpath())
         with closing(tarfile.open(self.get_tarpath(), 'r:*')) as tar:
-            if self.__adb__:
+            if self.__adb__:  # pragma: no cover
                 # extract files into temp folder before restoring to phone
                 file_info = tar.getmember(member_name)
                 temp_path = os.path.join(TEMP_DIR, '.%s_adb' % self.__timestamp__)

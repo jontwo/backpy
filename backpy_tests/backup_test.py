@@ -1,12 +1,9 @@
-# -*- coding: utf-8 -*-
+"""Tests for backup function."""
 
-
-# Stdlib imports
 import os
 import unittest
 from datetime import datetime
 
-# Project imports
 import backpy
 from backpy.helpers import is_windows
 from backpy_tests.common import BackpyTest
@@ -27,7 +24,7 @@ class BackupTest(BackpyTest):
         self.six_seven_folder = os.path.join(self.dest_root, 'six seven')
 
     # 1. perform backup into an empty destination folder
-    def testInitialBackup(self):
+    def test_initial_backup(self):
         self.do_backup()
 
         # count zips
@@ -37,7 +34,7 @@ class BackupTest(BackpyTest):
         self.assertEqual(zips_in_six_seven, 1)
 
     # 2. do 1, change a file, backup again
-    def testSecondBackup(self):
+    def test_second_backup(self):
         self.do_backup()
         self.change_one_four_five('some more text')
         self.do_backup()
@@ -49,7 +46,7 @@ class BackupTest(BackpyTest):
         self.assertEqual(zips_in_six_seven, 1)
 
     # 3. do 2, change a file, backup again
-    def testThirdBackup(self):
+    def test_third_backup(self):
         self.do_backup()
         self.change_one_four_five('some more text')
         self.do_backup()
@@ -63,7 +60,7 @@ class BackupTest(BackpyTest):
         self.assertEqual(zips_in_six_seven, 1)
 
     # 4. do 3, delete the file, backup again
-    def testDeleteFileAndBackup(self):
+    def test_delete_file_and_backup(self):
         self.do_backup()
         self.change_one_four_five('some more text')
         self.do_backup()
@@ -82,7 +79,7 @@ class BackupTest(BackpyTest):
         self.assertEqual(zips_in_six_seven, 1)
 
     # 5. do 1, add a new file, backup again
-    def testAddNewFileAndBackup(self):
+    def test_add_new_file_and_backup(self):
         self.do_backup()
 
         self.create_file(os.path.join(self.src_root, 'six seven', 'eleven'), 'new file\n')
@@ -96,7 +93,7 @@ class BackupTest(BackpyTest):
         self.assertEqual(zips_in_six_seven, 2)
 
     # 6. do 1, add a folder, backup again
-    def testAddNewFolderAndBackup(self):
+    def test_add_new_folder_and_backup(self):
         self.do_backup()
 
         self.create_folder(os.path.join(self.src_root, 'six seven', 'twelve'))
@@ -111,7 +108,7 @@ class BackupTest(BackpyTest):
         self.assertEqual(zips_in_six_seven, 2)
 
     # 7. do 6, delete a different folder, backup again
-    def testDeleteFolderAndBackup(self):
+    def test_delete_folder_and_backup(self):
         self.do_backup()
 
         self.create_folder(os.path.join(self.src_root, 'six seven', 'twelve'))
@@ -129,7 +126,7 @@ class BackupTest(BackpyTest):
         self.assertEqual(zips_in_six_seven, 2)
 
     # 8. do 1 (with a skip), change a file in skipped folder, backup again
-    def testAddSkipAndBackup(self):
+    def test_add_skip_and_backup(self):
         # add skip
         skips = [os.path.join(self.src_root, 'one'), os.path.join(self.dest_root, 'one'),
                  os.path.join(self.src_root, 'one', 'four')]
@@ -146,7 +143,7 @@ class BackupTest(BackpyTest):
         self.assertEqual(zips_in_six_seven, 1)
 
     # 9. do 1 (with a wildcard skip), change a file in skipped folder, backup again
-    def testAddSkipWithWildcard(self):
+    def test_add_skip_with_wildcard(self):
         # add skip
         skips = [os.path.join(self.src_root, 'six seven'),
                  os.path.join(self.dest_root, 'six seven'), 'seven']
@@ -165,7 +162,7 @@ class BackupTest(BackpyTest):
         self.assertEqual(zips_in_six_seven, 0)
 
     # 10. do 1, add skipped file, backup again
-    def testBackupWithGlobalSkip(self):
+    def test_backup_with_global_skip(self):
         self.do_backup()
         zips_before = self.count_files(os.path.join(self.one_folder, '*.tar.gz'))
 
@@ -196,8 +193,3 @@ class BackupTest(BackpyTest):
         expected = ('/', 'path/to/member')
         actual = backpy.Backup.get_member_name(filepath)
         self.assertEqual(expected, actual)
-
-
-if __name__ == '__main__':
-    suite = unittest.TestLoader().loadTestsFromTestCase(BackupTest)
-    unittest.TextTestRunner(verbosity=2).run(suite)

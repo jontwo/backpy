@@ -1,14 +1,10 @@
-# -*- coding: utf-8 -*-
+"""Config file tests."""
 
-# StdLib Imports
 import os
-import subprocess
-import unittest
 
-# Project Imports
 import backpy
+from backpy.helpers import SKIP_KEY, get_config_key
 from . import common
-from backpy.helpers import get_config_key, SKIP_KEY
 
 
 class ConfigTest(common.BackpyTest):
@@ -30,7 +26,7 @@ class ConfigTest(common.BackpyTest):
 
     # try to add a folder that does not exist
     # and check nothing is added to config file
-    def testAddFolderSourceNotFound(self):
+    def test_add_folder_source_not_found(self):
         size_before = self.get_file_size(backpy.CONFIG_FILE)
         src = 'test'
         dest = self.dest_root
@@ -43,7 +39,7 @@ class ConfigTest(common.BackpyTest):
 
     # try to add a folder that does exist
     # check source path is added to config file
-    def testAddFolderSourceFound(self):
+    def test_add_folder_source_found(self):
         size_before = self.get_file_size(backpy.CONFIG_FILE)
         # use rel path for source so can search config file for text
         src = os.path.join('resources', 'source_files', 'one')
@@ -57,7 +53,7 @@ class ConfigTest(common.BackpyTest):
         self.assertTrue(self.text_in_file(backpy.CONFIG_FILE, src))
 
     # try to add a folder that contains spaces in the name
-    def testAddFolderWithSpaces(self):
+    def test_add_folder_with_spaces(self):
         size_before = self.get_file_size(backpy.CONFIG_FILE)
         # use rel path for source so can search config file for text
         src = os.path.join('resources', 'source_files', 'six seven')
@@ -71,7 +67,7 @@ class ConfigTest(common.BackpyTest):
         self.assertTrue(self.text_in_file(backpy.CONFIG_FILE, src))
 
     # try to remove a folder
-    def testRemoveFolder(self):
+    def test_remove_folder(self):
         # add some entries to config
         self.add_one_folder()
         self.add_six_seven_folder(True)
@@ -89,7 +85,7 @@ class ConfigTest(common.BackpyTest):
         self.assertFalse(self.text_in_file(backpy.CONFIG_FILE, src))
 
     # try to remove a folder with a valid index
-    def testRemoveFolderByIndex(self):
+    def test_remove_folder_by_index(self):
         # add some entries to config
         self.add_one_folder()
         self.add_six_seven_folder(True)
@@ -104,7 +100,7 @@ class ConfigTest(common.BackpyTest):
         self.assertFalse(self.text_in_file(backpy.CONFIG_FILE, src))
 
     # try to remove a folder with an invalid index
-    def testRemoveFolderBadIndex(self):
+    def test_remove_folder_bad_index(self):
         # add some entries to config
         self.add_one_folder()
         self.add_six_seven_folder(True)
@@ -116,7 +112,7 @@ class ConfigTest(common.BackpyTest):
         size_after = self.get_file_size(backpy.CONFIG_FILE)
         self.assertEqual(size_after, size_before)
 
-    def testAddGlobalSkipAsString(self):
+    def test_add_global_skip_as_string(self):
         expected_skips = ['1,2,3']
 
         backpy.add_global_skip(backpy.CONFIG_FILE, expected_skips)
@@ -125,7 +121,7 @@ class ConfigTest(common.BackpyTest):
 
         self.assertCountEqual(expected_skips, actual_skips)
 
-    def testAddGlobalSkipWithWildcards(self):
+    def test_add_global_skip_with_wildcards(self):
         expected_skips = ['*.abc,*.def']
 
         backpy.add_global_skip(backpy.CONFIG_FILE, expected_skips)
@@ -134,7 +130,7 @@ class ConfigTest(common.BackpyTest):
 
         self.assertCountEqual(expected_skips, actual_skips)
 
-    def testAppendGlobalSkip(self):
+    def test_append_global_skip(self):
         expected_skips = ['one,two,three']
         backpy.add_global_skip(backpy.CONFIG_FILE, ['one,two'])
         backpy.add_global_skip(backpy.CONFIG_FILE, ['two,three'])
@@ -143,7 +139,7 @@ class ConfigTest(common.BackpyTest):
 
         self.assertCountEqual(expected_skips, actual_skips)
 
-    def testAddGlobalSkipAsItems(self):
+    def test_add_global_skip_as_items(self):
         expected_skips = ['1', '2', '3']
 
         backpy.add_global_skip(backpy.CONFIG_FILE, expected_skips)
@@ -152,7 +148,7 @@ class ConfigTest(common.BackpyTest):
 
         self.assertCountEqual([','.join(expected_skips)], actual_skips)
 
-    def testRemoveGlobalSkip(self):
+    def test_remove_global_skip(self):
         added_skips = ['1,2,3,4']
         expected_skips = ['1,3,4']
         backpy.add_global_skip(backpy.CONFIG_FILE, added_skips)
@@ -163,7 +159,7 @@ class ConfigTest(common.BackpyTest):
 
         self.assertCountEqual(expected_skips, actual_skips)
 
-    def testRemoveGlobalSkips(self):
+    def test_remove_global_skips(self):
         added_skips = ['1,2,3,4']
         removed_skips = ['2', '3', '4']
         expected_skips = ['1']
@@ -174,7 +170,3 @@ class ConfigTest(common.BackpyTest):
         actual_skips = get_config_key(backpy.CONFIG_FILE, SKIP_KEY)
 
         self.assertCountEqual(expected_skips, actual_skips)
-
-if __name__ == '__main__':
-    suite = unittest.TestLoader().loadTestsFromTestCase(ConfigTest)
-    unittest.TextTestRunner(verbosity=2).run(suite)

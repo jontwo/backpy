@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Copyright (c) 2012, Steffen Schneider <stes94@ymail.com>
 All rights reserved.
@@ -25,7 +24,7 @@ ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE.
 
 """
-# StdLib imports
+
 import io
 import os
 import platform
@@ -33,7 +32,6 @@ import re
 from hashlib import md5
 from shutil import rmtree
 
-# Project imports
 from .logger import logger
 
 DEFAULT_KEY = 'default'
@@ -66,6 +64,11 @@ def delete_temp_files(path):
 
 
 def make_directory(path):
+    """
+    Creates a directory
+    :param path: path of directory to be created
+    :raise OSError: if directory cannot be created
+    """
     logger.debug('making directory %s', path)
     try:
         if os.path.pardir in path:
@@ -128,7 +131,7 @@ def list_contains(s1, l2):
     """
     if is_windows():
         s1 = s1.lower()
-        l2 = [l.lower() for l in l2]
+        l2 = [item.lower() for item in l2]
     return s1 in l2
 
 
@@ -142,9 +145,9 @@ def get_filename_index(s1, l2):
     """
     if is_windows():
         s1 = s1.lower()
-        l2 = [l.lower() for l in l2]
+        l2 = [item.lower() for item in l2]
     try:
-        return [os.path.basename(l) for l in l2].index(s1)
+        return [os.path.basename(item) for item in l2].index(s1)
     except ValueError:
         return None
 
@@ -159,12 +162,12 @@ def get_folder_index(s1, l2):
     """
     if is_windows():
         s1 = s1.lower()
-        l2 = [l.lower() for l in l2]
-    while l2 != [os.path.dirname(l) for l in l2]:
+        l2 = [item.lower() for item in l2]
+    while l2 != [os.path.dirname(item) for item in l2]:
         try:
-            return [os.path.basename(l) for l in l2].index(s1)
+            return [os.path.basename(item) for item in l2].index(s1)
         except ValueError:
-            l2 = [os.path.dirname(l) for l in l2]
+            l2 = [os.path.dirname(item) for item in l2]
     return None
 
 
@@ -232,6 +235,11 @@ def get_file_hash(fullname, size=None, ctime=None):
 
 
 def get_config_version(path):
+    """
+    Get the version from the current config file.
+    :param path: path of config file
+    :return: version string
+    """
     version = get_config_key(path, VERSION_KEY)
     if version:
         return version[0]
@@ -251,7 +259,7 @@ def read_config_file(path):
     if os.path.exists(path):
         with open(path, 'r') as f:
             for line in f.readlines():
-                header = re.match('\[(.*)\]', line.strip())
+                header = re.match(r'\[(.*)]', line.strip())
                 if header:
                     header_text = header.group(1)
                     if '=' in header_text:
@@ -275,13 +283,13 @@ def write_config_file(path, values):
     """
     logger.debug('writing values to config: %s', values)
     try:
-        with open(path, "w+") as l:
+        with open(path, "w+") as fp:
             for k, v in values.items():
-                l.write('[{}]\n'.format(k))
+                fp.write('[{}]\n'.format(k))
                 for item in v:
-                    l.write('{}\n'.format(item))
+                    fp.write('{}\n'.format(item))
     except IOError:
-        logger.warn('could not write to config file %s', path)
+        logger.warning('could not write to config file %s', path)
 
 
 def update_config_file(path, key, val, overwrite=True):

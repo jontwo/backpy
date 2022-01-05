@@ -1,16 +1,11 @@
-# -*- coding: utf-8 -*-
+"""Common test functions."""
 
-# StdLib imports
 import glob
 import logging
 import os
 import unittest
-from shutil import (
-    copy2,
-    copytree,
-)
+from shutil import copy2, copytree
 
-# Project imports
 import backpy
 
 
@@ -24,7 +19,7 @@ class BackpyTest(unittest.TestCase):
 
     @classmethod
     def shortDescription(cls):
-        """Stop nose writing docstrings instead of test names"""
+        """Stop nose writing docstrings instead of test names."""
         pass
 
     @classmethod
@@ -62,7 +57,7 @@ class BackpyTest(unittest.TestCase):
         return cls.timestamp
 
     def setUp(self):
-        backpy.logger.debug('starting test {}'.format(unittest.TestCase.id(self)))
+        backpy.logger.debug('starting test %s', unittest.TestCase.id(self))
         # start test with blank config
         if os.path.exists(backpy.CONFIG_FILE):
             os.unlink(backpy.CONFIG_FILE)
@@ -75,13 +70,6 @@ class BackpyTest(unittest.TestCase):
 
         # copy resources
         copytree(os.path.join(self.project_dir, 'resources'), res_dir)
-
-    def assertCountEqual(self, actual, expected, msg=None):
-        """Handle method rename between python 2 and python 3"""
-        try:
-            super(BackpyTest, self).assertCountEqual(actual, expected, msg)
-        except AttributeError:
-            self.assertItemsEqual(actual, expected, msg)
 
     # source dir - rel_path is just to test users adding relative path to
     # config file. should mostly use abs path (the files that were copied
@@ -102,12 +90,14 @@ class BackpyTest(unittest.TestCase):
         dest = os.path.join(self.dest_root, 'six seven')
         backpy.add_directory(backpy.CONFIG_FILE, src, dest)
 
-    def add_global_skips(self, skips):
+    @staticmethod
+    def add_global_skips(skips):
         backpy.add_global_skip(backpy.CONFIG_FILE, skips)
 
-    def file_contents(self, filename):
-        with open(filename) as l:
-            return l.read().strip()
+    @staticmethod
+    def file_contents(filename):
+        with open(filename) as fp:
+            return fp.read().strip()
 
     def text_in_file(self, filename, text):
         return text in self.file_contents(filename)
@@ -179,7 +169,7 @@ class BackpyTest(unittest.TestCase):
         backpy.perform_restore(backpy.read_directory_list(backpy.CONFIG_FILE), files, chosen_index)
 
     def create_folder(self, folderpath):
-        backpy.logger.debug('creating folder {0}'.format(folderpath))
+        backpy.logger.debug('creating folder %s', folderpath)
         os.mkdir(folderpath)
 
     def create_file(self, filepath, text):

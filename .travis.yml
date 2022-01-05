@@ -1,14 +1,11 @@
 language: python
 python:
-    - "2.7"
-    - "3.5"
+    - "3.7"
+    - "3.8"
+    - "3.9"
 
 install:
-    - "python setup.py install"
+    - pip install ".[test]"
 
 script:
-    - "python -m unittest -v backpy_tests.config_file_test"
-    - "python -m unittest -v backpy_tests.helpers_test"
-    - "python -m unittest -v backpy_tests.index_test"
-    - "python -m unittest -v backpy_tests.backup_test"
-    - "python -m unittest -v backpy_tests.restore_test"
+    - pytest

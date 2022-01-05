@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Copyright (c) 2012, Steffen Schneider <stes94@ymail.com>
 All rights reserved.
@@ -25,7 +24,7 @@ ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE.
 
 """
-# StdLib imports
+
 import os
 import re
 import tarfile
@@ -33,8 +32,7 @@ from argparse import ArgumentParser
 from contextlib import closing
 from datetime import datetime
 
-# Project imports
-from .backup import Backup, TEMP_DIR
+from .backup import TEMP_DIR, Backup
 from .file_index import FileIndex
 from .helpers import (
     CONFIG_FILE,
@@ -42,11 +40,11 @@ from .helpers import (
     SKIP_KEY,
     VERSION_KEY,
     delete_temp_files,
+    get_config_key,
+    get_config_version,
     handle_arg_spaces,
     list_contains,
     make_directory,
-    get_config_key,
-    get_config_version,
     string_contains,
     string_equals,
     update_config_file
@@ -67,14 +65,14 @@ def read_backup(path):
     try:
         with closing(tarfile.open(path, 'r:*')) as tar:
             tar.extract('.index', temp_path)
-    except Exception as ex:
-        logger.error(ex.message)
-    finally:
-        index = FileIndex(temp_path, reading=True)
-        index.read_index(os.path.join(temp_path, '.index'))
-        # delete temp index now we've read it
-        delete_temp_files(temp_path)
-        return Backup(os.path.dirname(path), index, timestamp=timestamp)
+    except (OSError, tarfile.TarError):
+        logger.exception("Could not read backup")
+
+    index = FileIndex(temp_path, reading=True)
+    index.read_index(os.path.join(temp_path, '.index'))
+    # delete temp index now we've read it
+    delete_temp_files(temp_path)
+    return Backup(os.path.dirname(path), index, timestamp=timestamp)
 
 
 def all_backups(path, reverse_order=True):
@@ -206,23 +204,31 @@ def delete_directory(path, src, dest, confirm=True):
     :param dest: destination directory
     :param confirm: ask user to confirm deletion
     """
-    logger.debug('removing entry source: %s, destination: %s' % (src, dest))
+    logger.debug('removing entry source: %s, destination: %s', src, dest)
     dirs = read_directory_list(path)
     index = get_config_index(dirs, src, dest)
     if index is None:
-        if not os.path.isabs(src):
-            logger.warning('relative path used for source dir, adding current dir')
-            src = os.path.abspath(src)
-        if not os.path.isabs(dest):
-            logger.warning('relative path used for destination dir, adding current dir')
-            dest = os.path.abspath(dest)
-
-        # check config file again now paths are absolute
-        index = get_config_index(dirs, src, dest)
+        index = _make_paths_absolute_and_get_index(dirs, src, dest)
         if index is None:
-            logger.error('entry not found')
             return
     delete_directory_by_index(path, index, dirs, confirm)
+
+
+def _make_paths_absolute_and_get_index(dirs, src, dest):
+    if not os.path.isabs(src):
+        logger.warning('relative path used for source dir, adding current dir')
+        src = os.path.abspath(src)
+    if not os.path.isabs(dest):
+        logger.warning('relative path used for destination dir, adding current dir')
+        dest = os.path.abspath(dest)
+
+    # check config file again now paths are absolute
+    index = get_config_index(dirs, src, dest)
+    if index is None:
+        logger.error('entry not found')
+        return
+
+    return index
 
 
 def delete_directory_by_index(path, index, dirs=None, confirm=True):
@@ -292,7 +298,7 @@ def delete_global_skip(path, skips):
             update_config_file(path, SKIP_KEY, ','.join(old_list))
             return
 
-    logger.warn('global skip %s not found in list', skips)
+    logger.warning('global skip %s not found in list', skips)
 
 
 def add_skip(path, skips, add_regex=None):
@@ -311,16 +317,9 @@ def add_skip(path, skips, add_regex=None):
     dirs = read_directory_list(path)
     src = skips[0]
     dest = skips[1]
-    logger.info('adding skips to backup of %s to %s:', src, dest)
-    if not os.path.isabs(src):
-        logger.warning('relative path used for source dir, adding current dir')
-        src = os.path.abspath(src)
-    if not os.path.isabs(dest):
-        logger.warning('relative path used for destination dir, adding current dir')
-        dest = os.path.abspath(dest)
-    index = get_config_index(dirs, src, dest)
+    logger.info('adding skips to backup of %s to %s', src, dest)
+    index = _make_paths_absolute_and_get_index(dirs, src, dest)
     if index is None:
-        logger.error('entry not found')
         return
 
     line = dirs[index]
@@ -410,6 +409,7 @@ def find_file_in_backup(dirlist, filename, index=None, restore_path=None):
     :param index: used for unit testing. when multiple versions of a file are available,
     automatically pick a specific backup. if not given, the user will be prompted for the version
     to restore
+    :param restore_path: An alternative location to restore to
     """
     files = []
     folders = []
@@ -520,7 +520,7 @@ def perform_restore(dirlist, files=None, chosen_index=None, restore_path=None):
                     make_directory(dirname)
     else:
         # check if first arg is an index
-        match_index = re.match('#(\d+)', files[0])
+        match_index = re.match(r'#(\d+)', files[0])
         if match_index:
             try:
                 # remove index from files arg
@@ -568,8 +568,8 @@ def parse_args():  # pragma: no cover
                        help='remove the specified source and destination directories from the '
                             'backup.lst file. can also specify directories by index (see list).')
     group.add_argument('-s', '--skip', dest='skip', metavar='string', nargs='+', required=False,
-                       help='skips all directories that match the given fnmatch expression, e.g. '
-                            'skip all subdirectories with <source dir>\*\*')
+                       help=r'skips all directories that match the given fnmatch expression, e.g. '
+                            r'skip all subdirectories with <source dir>\*\*')
     group.add_argument('-c', '--contains', dest='contains', metavar='string', nargs='+',
                        required=False,
                        help='skips all directories that match the given fnmatch expression')
@@ -589,7 +589,7 @@ def parse_args():  # pragma: no cover
     group.add_argument('-t', '--temp-restore', metavar='path', nargs='+', dest='temp_restore',
                        required=False,
                        help='as restore, but with source and destination paths given as the first '
-                       ' two arguments, instead of read from the config file.')
+                            ' two arguments, instead of read from the config file.')
     group.add_argument('-n', '--adb', '--android', nargs='+', dest='adb', metavar='path',
                        required=False,
                        help='backs up the connected android device to the given folder. defaults '
@@ -650,14 +650,14 @@ def run_backpy():  # pragma: no cover
     elif args['temp_restore'] is not None:
         paths = args['temp_restore']
         if len(paths) < 2:
-            print ("not enough arguments to perform temp restore."
-                   "please specify source (location of existing backup)\n"
-                   "and destination (location to restore files to) and\n"
-                   "optionally, file(s) to be restored.")
+            print("not enough arguments to perform temp restore."
+                  "please specify source (location of existing backup)\n"
+                  "and destination (location to restore files to) and\n"
+                  "optionally, file(s) to be restored.")
         else:
             perform_restore(["", paths[1]], paths[2:], restore_path=paths[0])
     else:
-        print("please specify a program option.\n" + \
+        print("please specify a program option.\n"
               "invoke with --help for futher information.")
 
     if args['backup'] or args['restore'] or args['adb']:
@@ -665,7 +665,7 @@ def run_backpy():  # pragma: no cover
         logger.info('done. elapsed time = %s', datetime.now() - start)
 
 
-if __name__ == '__main__':  # pragma: no cover
+if __name__ == '__main__':
     run_backpy()
 else:
     set_up_logging(0)  # set up default logging on import

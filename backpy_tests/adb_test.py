@@ -1,18 +1,16 @@
-# -*- coding: utf-8 -*-
+"""Tests for adb backup mode."""
 
-# StdLib imports
 import os
 import re
 import subprocess
 import time
 import unittest
 
-# Project imports
+import pytest
+
 import backpy
-from . import backup_test
-from . import common
-from . import restore_test
 from backpy.helpers import is_windows
+from . import backup_test, common, restore_test
 
 
 def log_subprocess_output(pipe):
@@ -21,7 +19,7 @@ def log_subprocess_output(pipe):
 
     for line in map(str.strip, pipe.split('\n')):
         if line:
-            backpy.logger.debug('ADB: {0}'.format(line))
+            backpy.logger.debug('ADB: %s', line)
 
 
 def call_adb(cmd, err_msg='adb error', check_output=False):
@@ -39,18 +37,20 @@ def call_adb(cmd, err_msg='adb error', check_output=False):
 
 
 def push_files(src, dest):
-    backpy.logger.warning('pushing {0} to {1}'.format(src, dest))
+    backpy.logger.warning('pushing %s to %s', src, dest)
     call_adb(['adb', 'push', src, dest], 'could not copy files to phone')
 
 
 def list_files(folder):
     files = subprocess.check_output(
         ['adb', 'shell', 'ls', folder]
-    ).split('\n')
-    return list(map(str.strip, files))
+    ).decode('latin1').split('\n')
+    return [f.strip() for f in files]
 
 
 class AdbTest(common.BackpyTest):
+    devices = None
+
     @classmethod
     def setUpClass(cls):
         # check adb is installed and one device is connected
@@ -128,14 +128,14 @@ class AdbTest(common.BackpyTest):
 
     def create_file(self, filepath, text):
         # create file on PC then copy to phone
-        backpy.logger.debug('adb create file {0}'.format(filepath))
+        backpy.logger.debug('adb create file %s', filepath)
         super(AdbTest, self).create_file(filepath, text)
         android_filepath = self.get_android_path(filepath)
         push_files(filepath, android_filepath)
 
     def create_folder(self, folderpath):
         # create folder both on PC and on phone
-        backpy.logger.debug('adb create folder {0}'.format(folderpath))
+        backpy.logger.debug('adb create folder %s', folderpath)
         super(AdbTest, self).create_folder(folderpath)
         android_folderpath = self.get_android_path(folderpath)
         call_adb(['adb', 'shell', 'mkdir', android_folderpath], 'could not create folder on phone')
@@ -149,7 +149,7 @@ class AdbTest(common.BackpyTest):
         android_filename = self.get_android_path(filename)
         lines = subprocess.check_output(
             ['adb', 'shell', 'cat', android_filename]
-        ).strip().split('\n')
+        ).decode('latin1').strip().split('\n')
         return lines[-1] if lines else ''
 
     def do_backup(self):
@@ -201,8 +201,8 @@ class AdbTest(common.BackpyTest):
         str_time = call_adb(
             ['adb', 'shell', 'ls', '-al', android_filename],
             'could not get timestamp', True
-        )
-        m = re.search('(\d{4}-\d{2}-\d{2} \d{2}:\d{2})', str_time)
+        ).decode('latin1')
+        m = re.search(r'(\d{4}-\d{2}-\d{2} \d{2}:\d{2})', str_time)
         if m and m.groups():
             time_time = time.strptime(m.group(1), '%Y-%m-%d %H:%M')
             return time.mktime(time_time)
@@ -231,12 +231,12 @@ class AdbBackupTest(AdbTest, backup_test.BackupTest):
         # start test with blank config
         super(AdbBackupTest, self).setUp()
 
-    @unittest.skip('not applicable')
-    def testAddSkipAndBackup(self):
+    @pytest.mark.skip('not applicable')
+    def test_add_skip_and_backup(self):
         pass
 
-    @unittest.skip('not applicable')
-    def testAddSkipWithWildcard(self):
+    @pytest.mark.skip('not applicable')
+    def test_add_skip_with_wildcard(self):
         pass
 
 
@@ -257,17 +257,10 @@ class AdbRestoreTest(AdbTest, restore_test.RestoreTest):
         # start test with blank config
         super(AdbRestoreTest, self).setUp()
 
-    @unittest.skip('not applicable')
+    @pytest.mark.skip('not applicable')
     # does not apply to adb as hashes are partly based on timestamp
     # if timestamp changes, hash will change, so file will be restored
     # unlike pc, where changing timestamp will not cause file to be
     # backed up/restored
-    def testRestoreOneFileUnchanged(self):
+    def test_restore_one_file_unchanged(self):
         pass
-
-
-if __name__ == '__main__':
-    suite = unittest.TestLoader().loadTestsFromTestCase(AdbBackupTest)
-    unittest.TextTestRunner(verbosity=2).run(suite)
-    suite = unittest.TestLoader().loadTestsFromTestCase(AdbRestoreTest)
-    unittest.TextTestRunner(verbosity=2).run(suite)

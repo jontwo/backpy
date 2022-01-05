@@ -1,10 +1,9 @@
-# -*- coding: utf-8 -*-
+"""Tests for file_index module."""
 
-# StdLib Imports
 import os
-import unittest
 
-# Project Imports
+import pytest
+
 import backpy
 from backpy.helpers import get_file_hash, is_windows
 from backpy_tests.common import BackpyTest
@@ -53,21 +52,21 @@ class IndexTest(BackpyTest):
         ]
         return '\n'.join(index_text) if is_str else index_text
 
-    def testListFiles(self):
+    def test_list_files(self):
         expected_files = self.list_all_files()
 
         actual_files = self.index.files()
 
         self.assertCountEqual(expected_files, actual_files)
 
-    def testListDirs(self):
+    def test_list_dirs(self):
         expected_dirs = self.list_all_dirs()
 
         actual_dirs = self.index.dirs()
 
         self.assertCountEqual(expected_dirs, actual_dirs)
 
-    def testSkips(self):
+    def test_skips(self):
         # create fresh index with exclusions
         expected_rules = ['a', 'b', 'c']
         index = backpy.FileIndex(self.src_root, exclusion_rules=expected_rules)
@@ -76,7 +75,7 @@ class IndexTest(BackpyTest):
 
         self.assertCountEqual(expected_rules, actual_rules)
 
-    def testGlobalSkips(self):
+    def test_global_skips(self):
         # create fresh index with exclusions
         initial_rules = ['a', 'b', 'c']
         added_rules = ['d,e']
@@ -88,70 +87,70 @@ class IndexTest(BackpyTest):
 
         self.assertCountEqual(expected_rules, actual_rules)
 
-    def testIsValidBadFile(self):
+    def test_is_valid_bad_file(self):
         self.assertFalse(self.index.is_valid('bad file'))
 
-    def testIsValidNoRules(self):
+    def test_is_valid_no_rules(self):
         self.assertTrue(self.index.is_valid(self.get_one_four_five_path()))
 
-    def testIsValidSkippedFile(self):
+    def test_is_valid_skipped_file(self):
         # create fresh index with one exclusion
         expected_rules = ['*four*']
         index = backpy.FileIndex(self.src_root, exclusion_rules=expected_rules)
 
         self.assertFalse(index.is_valid(self.get_one_four_five_path()))
 
-    def testHashExactPath(self):
+    def test_hash_exact_path(self):
         expected_hash = get_file_hash(self.get_one_four_five_path())
 
-        actual_hash = self.index.hash(self.get_one_four_five_path())
+        actual_hash = self.index.file_hash(self.get_one_four_five_path())
 
         self.assertEqual(expected_hash, actual_hash)
 
-    def testHashExactPathNotFound(self):
-        actual_hash = self.index.hash('bad file')
+    def test_hash_exact_path_not_found(self):
+        actual_hash = self.index.file_hash('bad file')
 
         self.assertIsNone(actual_hash)
 
-    def testHashNameOnly(self):
+    def test_hash_name_only(self):
         expected_hash = get_file_hash(self.get_one_four_five_path())
 
-        actual_hash = self.index.hash('five', exact_match=False)
+        actual_hash = self.index.file_hash('five', exact_match=False)
 
         self.assertEqual(expected_hash, actual_hash)
 
-    def testHashNameOnlyNotFound(self):
-        actual_hash = self.index.hash('bad file', exact_match=False)
+    def test_hash_name_only_not_found(self):
+        actual_hash = self.index.file_hash('bad file', exact_match=False)
 
         self.assertIsNone(actual_hash)
 
-    def testIsFolderExactPath(self):
+    def test_is_folder_exact_path(self):
         self.assertTrue(self.index.is_folder(self.src_root))
 
-    def testIsFolderExactPathNotFound(self):
+    def test_is_folder_exact_path_not_found(self):
         self.assertFalse(self.index.is_folder('bad folder'))
 
-    def testIsFolderNameOnly(self):
+    def test_is_folder_name_only(self):
         self.assertTrue(self.index.is_folder('source_files', exact_match=False))
 
-    def testIsFolderNameOnlyNotFound(self):
+    def test_is_folder_name_only_not_found(self):
         self.assertFalse(self.index.is_folder('bad folder', exact_match=False))
 
-    def testGetDiffNoIndex(self):
+    def test_get_diff_no_index(self):
         expected_diff = self.list_all_files()
 
         actual_diff = self.index.get_diff()
 
         self.assertCountEqual(expected_diff, actual_diff)
 
-    def testGetDiffNoChange(self):
+    def test_get_diff_no_change(self):
         expected_diff = []
 
         actual_diff = self.index.get_diff(self.index)
 
         self.assertEqual(expected_diff, actual_diff)
 
-    def testGetDiffChangedFile(self):
+    def test_get_diff_changed_file(self):
         expected_diff = [self.get_one_four_five_path()]
         # change a file and regenerate index
         self.change_one_four_five('some text')
@@ -162,7 +161,7 @@ class IndexTest(BackpyTest):
 
         self.assertEqual(expected_diff, actual_diff)
 
-    def testGetDiffDeletedFile(self):
+    def test_get_diff_deleted_file(self):
         expected_diff = [self.get_one_four_five_path()]
         # delete a file and regenerate index
         self.delete_one_four_five()
@@ -173,21 +172,21 @@ class IndexTest(BackpyTest):
 
         self.assertEqual(expected_diff, actual_diff)
 
-    def testGetMissingNoIndex(self):
+    def test_get_missing_no_index(self):
         expected_missing = []
 
         actual_missing = self.index.get_missing()
 
         self.assertEqual(expected_missing, actual_missing)
 
-    def testGetMissingNoChange(self):
+    def test_get_missing_no_change(self):
         expected_missing = []
 
         actual_missing = self.index.get_missing(self.index)
 
         self.assertEqual(expected_missing, actual_missing)
 
-    def testGetMissingDeletedFile(self):
+    def test_get_missing_deleted_file(self):
         expected_missing = [self.get_one_four_five_path()]
         # delete a file and regenerate index
         self.delete_one_four_five()
@@ -198,7 +197,7 @@ class IndexTest(BackpyTest):
 
         self.assertEqual(expected_missing, actual_missing)
 
-    def testWriteIndex(self):
+    def test_write_index(self):
         expected_text = self.file_contents(self.index_147)
         tmp_path = os.path.join(backpy.TEMP_DIR, '.{}_index'.format(self.timestamp))
 
@@ -208,10 +207,10 @@ class IndexTest(BackpyTest):
             expected_text = self.index_to_windows_paths(expected_text, is_str=True)
         self.assertCountEqual(expected_text, actual_text)
 
-    @unittest.skip("src_root added to index twice")
+    @pytest.mark.skip("src_root added to index twice")
     # Note: this test currently fails, as src_root is added twice to the index
     # need to update read_index to check for duplicate entries
-    def testReadIndex(self):
+    def test_read_index(self):
         # create a new index and read existing (old style) index file
         index = backpy.FileIndex(self.src_root)
         index.read_index(self.index_147)
@@ -229,7 +228,7 @@ class IndexTest(BackpyTest):
             actual_dirs = self.index_to_windows_paths(actual_dirs)
         self.assertCountEqual(expected_dirs, actual_dirs)
 
-    def testReadIndexNotFound(self):
+    def test_read_index_not_found(self):
         # create a new index and try to read non-existant index file
         index = backpy.FileIndex(self.src_root)
         index.read_index()
@@ -244,7 +243,7 @@ class IndexTest(BackpyTest):
         actual_dirs = index.dirs()
         self.assertCountEqual(expected_dirs, actual_dirs)
 
-    def testReadIndex150(self):
+    def test_read_index150(self):
         # create a new index and read existing (new style) index file
         # headings should be ignored, except files and dirs
         index = backpy.FileIndex(self.src_root)
@@ -257,14 +256,9 @@ class IndexTest(BackpyTest):
             actual_files = self.index_to_windows_paths(actual_files)
         self.assertCountEqual(expected_files, actual_files)
 
-    def testReadIndexCheckAdb(self):
+    def test_read_index_check_adb(self):
         # create a new index and read existing (new style) index file
         index = backpy.FileIndex(self.src_root)
         index.read_index(self.index_150)
 
         self.assertFalse(index.__adb__)
-
-
-if __name__ == '__main__':
-    suite = unittest.TestLoader().loadTestsFromTestCase(IndexTest)
-    unittest.TextTestRunner(verbosity=2).run(suite)

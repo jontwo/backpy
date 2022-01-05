@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Copyright (c) 2012, Steffen Schneider <stes94@ymail.com>
 All rights reserved.
@@ -25,7 +24,7 @@ ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE.
 
 """
-# StdLib imports
+
 import logging
 import logging.handlers
 import os
@@ -40,6 +39,7 @@ class SometimesRotatingFileHandler(logging.handlers.RotatingFileHandler):
     If it does, just carry on and hope the lock will be released before the log file
     fills up the drive..."""
     def doRollover(self):
+        """Try and rollover log, do not raise if it fails."""
         try:
             super(SometimesRotatingFileHandler, self).doRollover()
         except OSError:
@@ -47,24 +47,27 @@ class SometimesRotatingFileHandler(logging.handlers.RotatingFileHandler):
 
 
 class SpecialFormatter(logging.Formatter):
+    """Override the Python formatter to add custom logging."""
+
     FORMATS = {
         logging.DEBUG: "DEBUG: %(lineno)d: %(message)s",
         logging.INFO: "%(message)s",
         'DEFAULT': "%(levelname)s: %(message)s"
     }
 
-    def format(self, record):
+    def format(self, record):  # noqa: A003,D102
         self._fmt = self.FORMATS.get(record.levelno, self.FORMATS['DEFAULT'])
-        return logging.Formatter.format(self, record)
+        return super().format(record)
 
 
 def set_log_path(log_path):
+    """Sets the log path module variable."""
     global LOG_FILE
     LOG_FILE = log_path
 
 
 def set_up_logging(level=1):
-    # remove existing handlers and add them again
+    """Remove any existing log handlers and add the required handlers."""
     for h in list(logger.handlers):
         logger.removeHandler(h)
 

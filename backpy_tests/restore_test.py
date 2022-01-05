@@ -1,9 +1,9 @@
-# -*- coding: utf-8 -*-
+"""Tests for restore function."""
+
+import os
 
 import backpy
 from . import common
-import os
-import unittest
 
 
 class RestoreTest(common.BackpyTest):
@@ -29,7 +29,7 @@ class RestoreTest(common.BackpyTest):
         self.add_six_seven_folder()
 
     # 1. do backup 1, delete 1 file, restore the file by full path
-    def testRestoreOneFileFullPath(self):
+    def test_restore_one_file_full_path(self):
         self.do_backup()
         self.delete_one_four_five()
         self.do_restore([self.get_one_four_five_path()], 0)
@@ -38,7 +38,7 @@ class RestoreTest(common.BackpyTest):
         self.assertIn('five', self.get_files_in_four())
 
     # 2. do backup 1, delete 1 file, restore the file by name only
-    def testRestoreOneFileByName(self):
+    def test_restore_one_file_by_name(self):
         self.do_backup()
         self.delete_one_four_five()
         self.do_restore(['five'], 0)
@@ -47,7 +47,7 @@ class RestoreTest(common.BackpyTest):
         self.assertIn('five', self.get_files_in_four())
 
     # 3. do backup 1, delete file, full restore
-    def testFullRestoreOneFileDeleted(self):
+    def test_full_restore_one_file_deleted(self):
         self.do_backup()
         self.delete_one_four_five()
         self.do_restore(chosen_index=0)
@@ -56,7 +56,7 @@ class RestoreTest(common.BackpyTest):
         self.assertIn('five', self.get_files_in_four())
 
     # 4. do backup 1, delete folder, restore the folder by full path
-    def testRestoreOneFolderByFullPath(self):
+    def test_restore_one_folder_by_full_path(self):
         self.do_backup()
         self.delete_six_seven()
         self.do_restore([self.get_six_seven_path()])
@@ -65,7 +65,7 @@ class RestoreTest(common.BackpyTest):
         self.assertIn('six seven', self.get_files_in_src())
 
     # 5. do backup 1, delete folder, restore the folder by name only
-    def testRestoreOneFolderByName(self):
+    def test_restore_one_folder_by_name(self):
         self.do_backup()
         self.delete_six_seven()
         self.do_restore(['six seven'])
@@ -74,7 +74,7 @@ class RestoreTest(common.BackpyTest):
         self.assertIn('six seven', self.get_files_in_src())
 
     # 6. do backup 1, delete folder, full restore
-    def testFullRestoreOneFolderDeleted(self):
+    def test_full_restore_one_folder_deleted(self):
         self.do_backup()
         self.delete_six_seven()
         self.do_restore(chosen_index=0)
@@ -83,7 +83,7 @@ class RestoreTest(common.BackpyTest):
         self.assertIn('six seven', self.get_files_in_src())
 
     # 7. do backup 1, restore a file, should be skipped as file is not changed
-    def testRestoreOneFileUnchanged(self):
+    def test_restore_one_file_unchanged(self):
         self.do_backup()
 
         # change file timestamp wihout changing contents
@@ -98,7 +98,7 @@ class RestoreTest(common.BackpyTest):
         self.assertEqual(modified_time_before, modified_time_after)
 
     # 8. do backup 3, delete everything, full restore
-    def testDeleteEverythingAndFullRestore(self):
+    def test_delete_everything_and_full_restore(self):
         self.do_backup()
         self.change_one_four_five('some more text')
         self.do_backup()
@@ -117,7 +117,7 @@ class RestoreTest(common.BackpyTest):
                          self.get_last_line(os.path.join(self.src_root, 'one', 'four', 'five')))
 
     # 9. do backup 4, restore the original version of the file
-    def testDeleteFileAndRestoreOriginal(self):
+    def test_delete_file_and_restore_original(self):
         self.do_backup()
         self.change_one_four_five('some more text')
         self.do_backup()
@@ -135,7 +135,7 @@ class RestoreTest(common.BackpyTest):
                          self.get_last_line(os.path.join(self.src_root, 'one', 'four', 'five')))
 
     # 10. do backup 7, full restore, folder should still be deleted
-    def testDeleteFolderAndFullRestore(self):
+    def test_delete_folder_and_full_restore(self):
         self.do_backup()
 
         self.create_folder(os.path.join(self.src_root, 'six seven', 'twelve'))
@@ -155,7 +155,7 @@ class RestoreTest(common.BackpyTest):
             os.path.join(self.src_root, 'six seven', 'twelve', 'eleven')))
 
     # 11. do backup 3, delete file, change some other files, restore intermediate version
-    def testBackupDeleteChangeOtherFilesThenRestore(self):
+    def test_backup_delete_change_other_files_then_restore(self):
         self.do_backup()
         self.change_one_four_five('some more text')
         self.do_backup()
@@ -177,7 +177,7 @@ class RestoreTest(common.BackpyTest):
         self.assertEqual(expected_last_line, actual_last_line)
 
     # 12. do backups 6 and 3 then restore a file that's been there from the start
-    def testMultipleBackupsThenRestoreOriginalFile(self):
+    def test_multiple_backups_then_restore_original_file(self):
         self.do_backup()
 
         self.create_folder(os.path.join(self.src_root, 'six seven', 'twelve'))
@@ -199,7 +199,7 @@ class RestoreTest(common.BackpyTest):
         self.assertIn('nine ten', self.get_files_in_one())
 
     # restore a file to a different location
-    def testRestoreFileToTempPath(self):
+    def test_restore_file_to_temp_path(self):
         self.do_backup()
 
         # original file path and contents
@@ -219,7 +219,7 @@ class RestoreTest(common.BackpyTest):
         self.assertEqual(expected_text, actual_text)
 
     # restore a folder to a different location
-    def testRestoreFolderToTempPath(self):
+    def test_restore_folder_to_temp_path(self):
         self.do_backup()
 
         # original folder path and file contents
@@ -237,8 +237,3 @@ class RestoreTest(common.BackpyTest):
         # check restored file contents
         actual_text = self.file_contents(os.path.join(restore_dir, zip_path, 'eight'))
         self.assertEqual(expected_text, actual_text)
-
-
-if __name__ == '__main__':
-    suite = unittest.TestLoader().loadTestsFromTestCase(RestoreTest)
-    unittest.TextTestRunner(verbosity=2).run(suite)
