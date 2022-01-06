@@ -5,7 +5,7 @@ import os
 import pytest
 
 import backpy
-from backpy.helpers import get_file_hash, is_windows
+from backpy.helpers import get_file_hash, is_osx, is_windows
 from backpy_tests.common import BackpyTest
 
 
@@ -42,14 +42,15 @@ class IndexTest(BackpyTest):
             os.path.join(self.src_root, 'six seven')
         ]
 
-    def index_to_windows_paths(self, index_text, is_str=False):
-        """saved index files contain linux paths, replace them if running tests on windows"""
+    def replace_index_paths(self, index_text, is_str=False):
+        """Saved index files contain linux paths, replace them if running tests on another OS."""
         if is_str:
             index_text = index_text.split('\n')
         index_text = [
-            f.replace('/tmp/backpy/resources/source_files', self.src_root).replace(
-                '/', '\\') for f in index_text
+            f.replace('/tmp/backpy/resources/source_files', self.src_root) for f in index_text
         ]
+        if is_windows():
+            index_text = [f.replace('/', '\\') for f in index_text]
         return '\n'.join(index_text) if is_str else index_text
 
     def test_list_files(self):
@@ -203,8 +204,8 @@ class IndexTest(BackpyTest):
 
         self.index.write_index(tmp_path)
         actual_text = self.file_contents(tmp_path)
-        if is_windows():
-            expected_text = self.index_to_windows_paths(expected_text, is_str=True)
+        if is_windows() or is_osx():
+            expected_text = self.replace_index_paths(expected_text, is_str=True)
         self.assertCountEqual(expected_text, actual_text)
 
     @pytest.mark.skip("src_root added to index twice")
@@ -218,14 +219,14 @@ class IndexTest(BackpyTest):
         # check files and dirs
         expected_files = self.list_all_files()
         actual_files = index.files()
-        if is_windows():
-            actual_files = self.index_to_windows_paths(actual_files)
+        if is_windows() or is_osx():
+            actual_files = self.replace_index_paths(actual_files)
         self.assertCountEqual(expected_files, actual_files)
 
         expected_dirs = self.list_all_dirs()
         actual_dirs = index.dirs()
-        if is_windows():
-            actual_dirs = self.index_to_windows_paths(actual_dirs)
+        if is_windows() or is_osx():
+            actual_dirs = self.replace_index_paths(actual_dirs)
         self.assertCountEqual(expected_dirs, actual_dirs)
 
     def test_read_index_not_found(self):
@@ -252,8 +253,8 @@ class IndexTest(BackpyTest):
         # check files and dirs
         expected_files = self.list_all_files()
         actual_files = index.files()
-        if is_windows():
-            actual_files = self.index_to_windows_paths(actual_files)
+        if is_windows() or is_osx():
+            actual_files = self.replace_index_paths(actual_files)
         self.assertCountEqual(expected_files, actual_files)
 
     def test_read_index_check_adb(self):

@@ -326,7 +326,11 @@ def get_config_key(path, key):
     return config.get(key, [])
 
 
+def is_osx():
+    """Check current operating system is OSX"""
+    return platform.system() == 'Darwin'
+
+
 def is_windows():
-    """Check current operating system is windows
-       Note: platform returns Linux/Darwin for linux/OSX"""
+    """Check current operating system is Windows"""
     return platform.system() == 'Windows'
