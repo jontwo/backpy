@@ -26,6 +26,7 @@ POSSIBILITY OF SUCH DAMAGE.
 """
 
 import fnmatch
+import logging
 import os
 import re
 import subprocess
@@ -41,9 +42,10 @@ from .helpers import (
     list_contains,
     read_config_file
 )
-from .logger import logger
+from .logger import LOG_NAME
 
 ANDROID_SKIPS = os.path.join(os.path.expanduser('~'), '.androidSkipFolders')
+LOG = logging.getLogger(LOG_NAME)
 
 
 class FileIndex:
@@ -53,7 +55,7 @@ class FileIndex:
         if exclusion_rules is None:
             exclusion_rules = []
         self.__files__ = {}
-        self.__dirs__ = [path]
+        self.__dirs__ = {path}
         self.__path__ = path
         self.__exclusion_rules__ = exclusion_rules or []
         self.__adb__ = adb
@@ -61,12 +63,12 @@ class FileIndex:
         global_skips = get_config_key(CONFIG_FILE, SKIP_KEY)
         if global_skips:
             self.__exclusion_rules__.extend(global_skips[0].split(','))
-            logger.debug('init exclusion rules = %s', self.__exclusion_rules__)
+            LOG.debug('init exclusion rules = %s', self.__exclusion_rules__)
         if adb:
-            logger.debug('new FileIndex for %s, adb=True', path)
+            LOG.debug('new FileIndex for %s, adb=True', path)
         # suppress warning when reading an existing index
         if not reading and not self.is_valid(path):
-            logger.warning('root dir %s does not exist or is excluded', path)
+            LOG.warning('root dir %s does not exist or is excluded', path)
 
     def is_valid(self, f):
         """Checks if the item exists and is not skipped."""
@@ -77,7 +79,7 @@ class FileIndex:
                 with open(ANDROID_SKIPS) as skip_list:
                     for entry in skip_list:
                         if f.startswith(entry.strip()):
-                            logger.debug('SKIPPING %s', f)
+                            LOG.debug('SKIPPING %s', f)
                             return False
         elif not os.path.exists(f):
             return False
@@ -94,21 +96,21 @@ class FileIndex:
     def gen_index(self):
         """Generates the file index for the current working directory."""
         if self.__adb__:  # pragma: no cover
-            logger.info('generating index of android device')
+            LOG.info('generating index of android device')
             self.adb_read_folder(self.__path__)
             return
 
-        logger.info('generating index of %s', self.__path__)
+        LOG.info('generating index of %s', self.__path__)
         for dirname, dirnames, filenames in os.walk(self.__path__):
             if not self.is_valid(dirname):
                 continue
             for subdirname in dirnames:
                 fullpath = os.path.join(dirname, subdirname)
                 if self.is_valid(fullpath):
-                    self.__dirs__.append(fullpath)
+                    self.__dirs__.add(fullpath)
                 else:
                     dirnames.remove(subdirname)
-                    logger.debug('skipping directory: %s', fullpath)
+                    LOG.debug('skipping directory: %s', fullpath)
             for filename in filenames:
                 fullname = os.path.join(dirname, filename)
                 if not self.is_valid(fullname):
@@ -124,7 +126,7 @@ class FileIndex:
 
     def dirs(self):
         """Gets the current list of directories."""
-        return self.__dirs__
+        return sorted(self.__dirs__)
 
     def skips(self):
         """Get the list of items to skip."""
@@ -159,7 +161,7 @@ class FileIndex:
         """Writes the current index to file."""
         if path is None:
             path = os.path.join(self.__path__, '.index')
-        logger.debug('writing index to %s', path)
+        LOG.debug('writing index to %s', path)
         with open(path, 'w+') as index:
             # BREAKING CHANGE: if you read this index with an old version
             # of backpy, you'll get a [adb=x] folder
@@ -175,9 +177,9 @@ class FileIndex:
         """
         if path is None:
             path = os.path.join(self.__path__, '.index')
-        logger.debug('reading index at %s', path)
+        LOG.debug('reading index at %s', path)
         if not os.path.exists(path):
-            logger.debug('not found, returning')
+            LOG.debug('not found, returning')
             return
         index = read_config_file(path)
         for k, v in index.items():
@@ -188,7 +190,7 @@ class FileIndex:
                     [fname, _hash] = f.split('@@@')
                     self.__files__[fname] = _hash
             elif k == 'dirs':
-                self.__dirs__.extend([d for d in v if d not in self.dirs()])
+                self.__dirs__.update(v)
             elif k == 'default':
                 # items without a header, i.e. pre-1.5.0 style index
                 in_files = False
@@ -200,9 +202,9 @@ class FileIndex:
                         # add file
                         [fname, _hash] = line.split('@@@')
                         self.__files__[fname] = _hash
-                    elif line not in self.dirs():
+                    elif line not in self.__dirs__:
                         # add directory
-                        self.__dirs__.append(line)
+                        self.__dirs__.add(line)
 
     def get_diff(self, index=None):
         """Return a list of changed files."""
@@ -224,7 +226,7 @@ class FileIndex:
         modified date and time, and size
         :param path: full path of the folder to read
         """
-        logger.debug('reading adb folder %s', path)
+        LOG.debug('reading adb folder %s', path)
         # check files in this folder
         for out in subprocess.check_output(['adb', 'shell', 'ls', '-l',
                                             re.escape(path)]).decode('latin1').split('\n'):
@@ -249,7 +251,7 @@ class FileIndex:
                 f_time = line.pop(0)
                 f_name = ' '.join(line)
             except IndexError:
-                logger.warning('could not extract info from %s', file_info)
+                LOG.warning('could not extract info from %s', file_info)
                 continue
 
             # check for slash before adding sub path
@@ -261,7 +263,7 @@ class FileIndex:
             if self.is_valid(fullname):
                 if f_permissions.startswith('d'):
                     # folder - add to list and search subfolders
-                    self.__dirs__.append(fullname)
+                    self.__dirs__.add(fullname)
                     self.adb_read_folder(fullname)
                 else:
                     # file - hash and add to list

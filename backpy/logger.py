@@ -30,11 +30,12 @@ import logging.handlers
 import os
 import sys
 
-logger = logging.getLogger('backpy')
+LOG_NAME = 'backpy'
 LOG_FILE = os.path.join(os.path.expanduser('~'), 'backpy.log')
+_logger = logging.getLogger(LOG_NAME)
 
 
-class SometimesRotatingFileHandler(logging.handlers.RotatingFileHandler):
+class SometimesRotatingFileHandler(logging.handlers.RotatingFileHandler):  # pragma: no cover
     """Custom class to handle windows file locks sometimes preventing file rollover.
     If it does, just carry on and hope the lock will be released before the log file
     fills up the drive..."""
@@ -60,7 +61,7 @@ class SpecialFormatter(logging.Formatter):
         return super().format(record)
 
 
-def set_log_path(log_path):
+def set_log_path(log_path):  # pragma: no cover
     """Sets the log path module variable."""
     global LOG_FILE
     LOG_FILE = log_path
@@ -68,20 +69,20 @@ def set_log_path(log_path):
 
 def set_up_logging(level=1):
     """Remove any existing log handlers and add the required handlers."""
-    for h in list(logger.handlers):
-        logger.removeHandler(h)
+    for h in list(_logger.handlers):
+        _logger.removeHandler(h)
 
-    logger.setLevel(logging.DEBUG)
+    _logger.setLevel(logging.DEBUG)
     sh = logging.StreamHandler(sys.stderr)
     sh.setFormatter(SpecialFormatter())
     sh.setLevel(logging.INFO)
-    if 2 == level:
+    if 2 == level:  # pragma: no cover
         sh.setLevel(logging.DEBUG)
     # kill console output (i.e. during unit tests)
     if 0 != level:
-        logger.addHandler(sh)
+        _logger.addHandler(sh)
     fh = SometimesRotatingFileHandler(LOG_FILE, maxBytes=1000000, backupCount=3)
     fh.setLevel(logging.DEBUG)
     ff = logging.Formatter('%(asctime)s: %(levelname)s: %(funcName)s: %(message)s')
     fh.setFormatter(ff)
-    logger.addHandler(fh)
+    _logger.addHandler(fh)

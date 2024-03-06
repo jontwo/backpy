@@ -2,9 +2,9 @@
 
 import os
 
-import backpy
+from backpy.backup import TEMP_DIR
 from backpy.helpers import (
-    SKIP_KEY,
+    CONFIG_FILE,
     get_config_key,
     get_config_version,
     get_file_hash,
@@ -13,6 +13,7 @@ from backpy.helpers import (
     handle_arg_spaces,
     list_contains,
     read_config_file,
+    SKIP_KEY,
     string_contains,
     string_equals,
     string_startswith,
@@ -34,7 +35,7 @@ class HelpersTest(common.BackpyTest):
             'k2': ['more text']
         }
         cls.test_config_string = '[default]\n[k1]\nsome text\n[k2]\nmore text\n'
-        cls.config_path = os.path.join(backpy.TEMP_DIR, 'test_config')
+        cls.config_path = os.path.join(TEMP_DIR, 'test_config')
 
     @classmethod
     def tearDown(cls):
@@ -176,18 +177,18 @@ class HelpersTest(common.BackpyTest):
     def test_get_config_version(self):
         expected_version = self.get_backpy_version()
 
-        actual_version = get_config_version(backpy.CONFIG_FILE)
+        actual_version = get_config_version(CONFIG_FILE)
 
         self.assertEqual(expected_version, actual_version)
 
     def test_get_config_bad_version(self):
         # overwrite config with some text
-        with open(backpy.CONFIG_FILE, 'w+') as f:
+        with open(CONFIG_FILE, 'w+') as f:
             f.write('some text\n')
 
         expected_version = 0
 
-        actual_version = get_config_version(backpy.CONFIG_FILE)
+        actual_version = get_config_version(CONFIG_FILE)
 
         self.assertEqual(expected_version, actual_version)
 
@@ -196,14 +197,14 @@ class HelpersTest(common.BackpyTest):
 
         self.add_global_skips(expected_skips)
 
-        actual_skips = get_config_key(backpy.CONFIG_FILE, SKIP_KEY)
+        actual_skips = get_config_key(CONFIG_FILE, SKIP_KEY)
 
         self.assertCountEqual(expected_skips, actual_skips)
 
     def test_get_config_key_not_found(self):
         expected_value = []
 
-        actual_value = get_config_key(backpy.CONFIG_FILE, 'not found')
+        actual_value = get_config_key(CONFIG_FILE, 'not found')
 
         self.assertCountEqual(expected_value, actual_value)
 

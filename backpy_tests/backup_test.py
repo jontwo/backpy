@@ -4,8 +4,9 @@ import os
 import unittest
 from datetime import datetime
 
-import backpy
-from backpy.helpers import is_windows
+from backpy.backpy import add_skip
+from backpy.backup import Backup
+from backpy.helpers import CONFIG_FILE, delete_temp_files, is_windows
 from backpy_tests.common import BackpyTest
 
 
@@ -15,7 +16,7 @@ class BackupTest(BackpyTest):
         # start test with blank config
         super(BackupTest, self).setUp()
         # clear dest folder
-        backpy.delete_temp_files(self.dest_root)
+        delete_temp_files(self.dest_root)
         # add some entries to config
         self.add_global_skips('*.jpg,*.tif')
         self.add_one_folder()
@@ -130,7 +131,7 @@ class BackupTest(BackpyTest):
         # add skip
         skips = [os.path.join(self.src_root, 'one'), os.path.join(self.dest_root, 'one'),
                  os.path.join(self.src_root, 'one', 'four')]
-        backpy.add_skip(backpy.CONFIG_FILE, skips)
+        add_skip(CONFIG_FILE, skips)
 
         self.do_backup()
         self.change_one_four_five('some more text')
@@ -147,7 +148,7 @@ class BackupTest(BackpyTest):
         # add skip
         skips = [os.path.join(self.src_root, 'six seven'),
                  os.path.join(self.dest_root, 'six seven'), 'seven']
-        backpy.add_skip(backpy.CONFIG_FILE, skips, True)
+        add_skip(CONFIG_FILE, skips, True)
 
         self.do_backup()
 
@@ -177,19 +178,19 @@ class BackupTest(BackpyTest):
     def test_get_timestamp(self):
         """Test timestamp method"""
         expected = datetime.now().strftime('%Y%m%d%H%M%S')
-        actual = backpy.Backup.get_timestamp()
+        actual = Backup.get_timestamp()
         self.assertEqual(expected, actual)
 
     @unittest.skipUnless(is_windows(), 'Windows only')
     def test_get_member_name_windows(self):
         filepath = 'c:\\path\\to\\member'
         expected = ('c:\\', 'path/to/member')
-        actual = backpy.Backup.get_member_name(filepath)
+        actual = Backup.get_member_name(filepath)
         self.assertEqual(expected, actual)
 
     @unittest.skipIf(is_windows(), '*nix only')
     def test_get_member_name_unix(self):
         filepath = '/path/to/member'
         expected = ('/', 'path/to/member')
-        actual = backpy.Backup.get_member_name(filepath)
+        actual = Backup.get_member_name(filepath)
         self.assertEqual(expected, actual)

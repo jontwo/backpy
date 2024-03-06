@@ -26,18 +26,20 @@ POSSIBILITY OF SUCH DAMAGE.
 """
 
 import io
+import logging
 import os
 import platform
 import re
 from hashlib import md5
 from shutil import rmtree
 
-from .logger import logger
+from .logger import LOG_NAME
 
 DEFAULT_KEY = 'default'
 SKIP_KEY = 'global skips'
 VERSION_KEY = 'backpy version'
 CONFIG_FILE = os.path.join(os.path.expanduser('~'), '.backpy')
+LOG = logging.getLogger(LOG_NAME)
 
 
 def delete_temp_files(path):
@@ -52,7 +54,7 @@ def delete_temp_files(path):
             os.chmod(path, 0o777)
             os.unlink(path)
         except OSError:
-            logger.warning('could not delete %s', path)
+            LOG.warning('could not delete %s', path)
         return
 
     if os.path.isdir(path):
@@ -60,7 +62,7 @@ def delete_temp_files(path):
             os.chmod(path, 0o777)
             rmtree(path)
         except OSError:
-            logger.warning('could not delete %s', path)
+            LOG.warning('could not delete %s', path)
 
 
 def make_directory(path):
@@ -69,7 +71,7 @@ def make_directory(path):
     :param path: path of directory to be created
     :raise OSError: if directory cannot be created
     """
-    logger.debug('making directory %s', path)
+    LOG.debug('making directory %s', path)
     try:
         if os.path.pardir in path:
             os.mkdir(path)
@@ -78,7 +80,7 @@ def make_directory(path):
             # only works if dest does not contain pardir (..)
             os.makedirs(path)
     except OSError:
-        logger.error('could not create directory')
+        LOG.error('could not create directory')
 
 
 def string_equals(s1, s2):
@@ -179,7 +181,7 @@ def handle_arg_spaces(old_args):
     """
     num_quotes = len(str(old_args)) - len(str(old_args).replace('\"', ''))
     if num_quotes % 2 != 0:
-        logger.error('mismatched quotes in input argument: %s', old_args)
+        LOG.error('mismatched quotes in input argument: %s', old_args)
     elif num_quotes != 0:
         in_quote = False
         rebuilt_args = []
@@ -229,7 +231,7 @@ def get_file_hash(fullname, size=None, ctime=None):
             with io.open(fullname, encoding='latin1') as f:
                 md5hash = md5(f.read().encode('latin1', errors='ignore'))
         except (IOError, MemoryError):
-            logger.warning('could not process file: %s', fullname)
+            LOG.warning('could not process file: %s', fullname)
 
     return md5hash.hexdigest() if md5hash else None
 
@@ -281,7 +283,7 @@ def write_config_file(path, values):
     :param path: path of config file
     :param values: dictionary of key/value pairs to write
     """
-    logger.debug('writing values to config: %s', values)
+    LOG.debug('writing values to config: %s', values)
     try:
         with open(path, "w+") as fp:
             for k, v in values.items():
@@ -289,7 +291,7 @@ def write_config_file(path, values):
                 for item in v:
                     fp.write('{}\n'.format(item))
     except IOError:
-        logger.warning('could not write to config file %s', path)
+        LOG.warning('could not write to config file %s', path)
 
 
 def update_config_file(path, key, val, overwrite=True):
@@ -300,7 +302,7 @@ def update_config_file(path, key, val, overwrite=True):
     :param val: value to write, as a list
     :param overwrite: True to replace the existing value, False to append the new value
     """
-    logger.debug('updating config key %s', key)
+    LOG.debug('updating config key %s', key)
     config = read_config_file(path)
     if not isinstance(val, list):
         val = [val]

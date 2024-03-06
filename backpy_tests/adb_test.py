@@ -1,5 +1,6 @@
 """Tests for adb backup mode."""
 
+import logging
 import os
 import re
 import subprocess
@@ -8,9 +9,12 @@ import unittest
 
 import pytest
 
-import backpy
-from backpy.helpers import is_windows
+from backpy.backpy import perform_backup, perform_restore
+from backpy.helpers import delete_temp_files, is_windows
+from backpy.logger import LOG_NAME
 from . import backup_test, common, restore_test
+
+LOG = logging.getLogger(LOG_NAME)
 
 
 def log_subprocess_output(pipe):
@@ -19,7 +23,7 @@ def log_subprocess_output(pipe):
 
     for line in map(str.strip, pipe.split('\n')):
         if line:
-            backpy.logger.debug('ADB: %s', line)
+            LOG.debug('ADB: %s', line)
 
 
 def call_adb(cmd, err_msg='adb error', check_output=False):
@@ -33,11 +37,11 @@ def call_adb(cmd, err_msg='adb error', check_output=False):
         else:
             log_subprocess_output(output)
     except subprocess.CalledProcessError:
-        backpy.logger.warning(err_msg)
+        LOG.warning(err_msg)
 
 
 def push_files(src, dest):
-    backpy.logger.warning('pushing %s to %s', src, dest)
+    LOG.warning('pushing %s to %s', src, dest)
     call_adb(['adb', 'push', src, dest], 'could not copy files to phone')
 
 
@@ -101,7 +105,7 @@ class AdbTest(common.BackpyTest):
         # start test with blank config
         super(AdbTest, self).setUp()
         # clear dest folder
-        backpy.delete_temp_files(self.dest_root)
+        delete_temp_files(self.dest_root)
         # copy source files onto device
         push_files(
             os.path.join(self.project_dir, 'resources', 'source_files'),
@@ -114,7 +118,7 @@ class AdbTest(common.BackpyTest):
             ['{0}/one'.format(self.android_root), self.one_folder],
             ['{0}/six seven'.format(self.android_root), self.six_seven_folder]
         ]
-        backpy.logger.debug('AdbTest setUp done')
+        LOG.debug('AdbTest setUp done')
 
     def tearDown(self):
         super(AdbTest, self).tearDown()
@@ -128,14 +132,14 @@ class AdbTest(common.BackpyTest):
 
     def create_file(self, filepath, text):
         # create file on PC then copy to phone
-        backpy.logger.debug('adb create file %s', filepath)
+        LOG.debug('adb create file %s', filepath)
         super(AdbTest, self).create_file(filepath, text)
         android_filepath = self.get_android_path(filepath)
         push_files(filepath, android_filepath)
 
     def create_folder(self, folderpath):
         # create folder both on PC and on phone
-        backpy.logger.debug('adb create folder %s', folderpath)
+        LOG.debug('adb create folder %s', folderpath)
         super(AdbTest, self).create_folder(folderpath)
         android_folderpath = self.get_android_path(folderpath)
         call_adb(['adb', 'shell', 'mkdir', android_folderpath], 'could not create folder on phone')
@@ -154,10 +158,10 @@ class AdbTest(common.BackpyTest):
 
     def do_backup(self):
         for f in self.files_to_backup:
-            backpy.perform_backup(f, self.mock_timestamp(), True)
+            perform_backup(f, self.mock_timestamp(), True)
 
     def do_restore(self, files=None, chosen_index=None):
-        backpy.perform_restore(self.files_to_backup, files, chosen_index)
+        perform_restore(self.files_to_backup, files, chosen_index)
 
     def get_files_in_src(self):
         return list_files(self.android_root)

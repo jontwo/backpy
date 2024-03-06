@@ -11,3 +11,4 @@ coverage_*
 .noseids
 htmlcov/*
 cover/*
+.DS_Store

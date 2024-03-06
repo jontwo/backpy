@@ -2,10 +2,10 @@
 
 import os
 
-import pytest
-
-import backpy
-from backpy.helpers import get_file_hash, is_osx, is_windows
+from backpy.backpy import add_global_skip
+from backpy.backup import TEMP_DIR
+from backpy.file_index import FileIndex
+from backpy.helpers import CONFIG_FILE, get_file_hash, is_osx, is_windows
 from backpy_tests.common import BackpyTest
 
 
@@ -17,14 +17,14 @@ class IndexTest(BackpyTest):
         super(IndexTest, cls).setUpClass()
 
         # create index
-        cls.index = backpy.FileIndex(cls.src_root)
+        cls.index = FileIndex(cls.src_root)
         cls.index.gen_index()
 
         # index file from backpy v1.4.7
-        cls.index_147 = os.path.join(backpy.TEMP_DIR, 'resources', 'index_147')
+        cls.index_147 = os.path.join(TEMP_DIR, 'resources', 'index_147')
 
         # index file from backpy v1.5.0
-        cls.index_150 = os.path.join(backpy.TEMP_DIR, 'resources', 'index_150')
+        cls.index_150 = os.path.join(TEMP_DIR, 'resources', 'index_150')
 
     def list_all_files(self):
         return [
@@ -51,6 +51,8 @@ class IndexTest(BackpyTest):
         ]
         if is_windows():
             index_text = [f.replace('/', '\\') for f in index_text]
+        # Remove duplicates
+        index_text = sorted(set(index_text))
         return '\n'.join(index_text) if is_str else index_text
 
     def test_list_files(self):
@@ -70,7 +72,7 @@ class IndexTest(BackpyTest):
     def test_skips(self):
         # create fresh index with exclusions
         expected_rules = ['a', 'b', 'c']
-        index = backpy.FileIndex(self.src_root, exclusion_rules=expected_rules)
+        index = FileIndex(self.src_root, exclusion_rules=expected_rules)
 
         actual_rules = index.skips()
 
@@ -81,8 +83,8 @@ class IndexTest(BackpyTest):
         initial_rules = ['a', 'b', 'c']
         added_rules = ['d,e']
         expected_rules = ['a', 'b', 'c', 'd', 'e']
-        backpy.add_global_skip(backpy.CONFIG_FILE, added_rules)
-        index = backpy.FileIndex(self.src_root, exclusion_rules=initial_rules)
+        add_global_skip(CONFIG_FILE, added_rules)
+        index = FileIndex(self.src_root, exclusion_rules=initial_rules)
 
         actual_rules = index.skips()
 
@@ -97,7 +99,7 @@ class IndexTest(BackpyTest):
     def test_is_valid_skipped_file(self):
         # create fresh index with one exclusion
         expected_rules = ['*four*']
-        index = backpy.FileIndex(self.src_root, exclusion_rules=expected_rules)
+        index = FileIndex(self.src_root, exclusion_rules=expected_rules)
 
         self.assertFalse(index.is_valid(self.get_one_four_five_path()))
 
@@ -155,7 +157,7 @@ class IndexTest(BackpyTest):
         expected_diff = [self.get_one_four_five_path()]
         # change a file and regenerate index
         self.change_one_four_five('some text')
-        new_index = backpy.FileIndex(self.src_root)
+        new_index = FileIndex(self.src_root)
         new_index.gen_index()
 
         actual_diff = self.index.get_diff(new_index)
@@ -166,7 +168,7 @@ class IndexTest(BackpyTest):
         expected_diff = [self.get_one_four_five_path()]
         # delete a file and regenerate index
         self.delete_one_four_five()
-        new_index = backpy.FileIndex(self.src_root)
+        new_index = FileIndex(self.src_root)
         new_index.gen_index()
 
         actual_diff = self.index.get_diff(new_index)
@@ -191,7 +193,7 @@ class IndexTest(BackpyTest):
         expected_missing = [self.get_one_four_five_path()]
         # delete a file and regenerate index
         self.delete_one_four_five()
-        new_index = backpy.FileIndex(self.src_root)
+        new_index = FileIndex(self.src_root)
         new_index.gen_index()
 
         actual_missing = new_index.get_missing(self.index)
@@ -200,7 +202,7 @@ class IndexTest(BackpyTest):
 
     def test_write_index(self):
         expected_text = self.file_contents(self.index_147)
-        tmp_path = os.path.join(backpy.TEMP_DIR, '.{}_index'.format(self.timestamp))
+        tmp_path = os.path.join(TEMP_DIR, '.{}_index'.format(self.timestamp))
 
         self.index.write_index(tmp_path)
         actual_text = self.file_contents(tmp_path)
@@ -208,12 +210,9 @@ class IndexTest(BackpyTest):
             expected_text = self.replace_index_paths(expected_text, is_str=True)
         self.assertCountEqual(expected_text, actual_text)
 
-    @pytest.mark.skip("src_root added to index twice")
-    # Note: this test currently fails, as src_root is added twice to the index
-    # need to update read_index to check for duplicate entries
     def test_read_index(self):
         # create a new index and read existing (old style) index file
-        index = backpy.FileIndex(self.src_root)
+        index = FileIndex(self.src_root)
         index.read_index(self.index_147)
 
         # check files and dirs
@@ -231,7 +230,7 @@ class IndexTest(BackpyTest):
 
     def test_read_index_not_found(self):
         # create a new index and try to read non-existant index file
-        index = backpy.FileIndex(self.src_root)
+        index = FileIndex(self.src_root)
         index.read_index()
 
         # check files and dirs
@@ -247,7 +246,7 @@ class IndexTest(BackpyTest):
     def test_read_index150(self):
         # create a new index and read existing (new style) index file
         # headings should be ignored, except files and dirs
-        index = backpy.FileIndex(self.src_root)
+        index = FileIndex(self.src_root)
         index.read_index(self.index_150)
 
         # check files and dirs
@@ -259,7 +258,7 @@ class IndexTest(BackpyTest):
 
     def test_read_index_check_adb(self):
         # create a new index and read existing (new style) index file
-        index = backpy.FileIndex(self.src_root)
+        index = FileIndex(self.src_root)
         index.read_index(self.index_150)
 
         self.assertFalse(index.__adb__)

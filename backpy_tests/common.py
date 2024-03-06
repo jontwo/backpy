@@ -6,11 +6,18 @@ import os
 import unittest
 from shutil import copy2, copytree
 
-import backpy
+from backpy.backpy import (
+    add_directory, add_global_skip, init, perform_backup, perform_restore, read_directory_list
+)
+from backpy.backup import TEMP_DIR
+from backpy.helpers import CONFIG_FILE, delete_temp_files
+from backpy.logger import LOG_NAME, set_up_logging
+
+LOG = logging.getLogger(LOG_NAME)
 
 
 class BackpyTest(unittest.TestCase):
-    config_backup = os.path.expanduser('~/.backpy.orig')
+    config_backup = os.path.expanduser('~/.orig')
     project_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     dest_root = ''
     src_root = ''
@@ -24,30 +31,30 @@ class BackpyTest(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        backpy.set_up_logging(0)
+        set_up_logging(0)
         logging.disable(logging.CRITICAL)
         # backup any existing config
-        if os.path.exists(backpy.CONFIG_FILE):
+        if os.path.exists(CONFIG_FILE):
             cls.restore_config = True
             if not os.path.exists(cls.config_backup):
-                backpy.logger.debug('deleting existing config')
-                os.rename(backpy.CONFIG_FILE, cls.config_backup)
+                LOG.debug('deleting existing config')
+                os.rename(CONFIG_FILE, cls.config_backup)
 
         # set backup dirs
-        if not os.path.exists(backpy.TEMP_DIR):
-            os.mkdir(backpy.TEMP_DIR, 0o777)
-        cls.src_root = os.path.join(backpy.TEMP_DIR, 'resources', 'source_files')
-        cls.dest_root = os.path.join(backpy.TEMP_DIR, 'resources', 'dest_files')
+        if not os.path.exists(TEMP_DIR):
+            os.mkdir(TEMP_DIR, 0o777)
+        cls.src_root = os.path.join(TEMP_DIR, 'resources', 'source_files')
+        cls.dest_root = os.path.join(TEMP_DIR, 'resources', 'dest_files')
 
     @classmethod
     def tearDownClass(cls):
         # keep config for reference
-        copy2(backpy.CONFIG_FILE, cls.dest_root)
+        copy2(CONFIG_FILE, cls.dest_root)
         # restore config
         if cls.restore_config:
-            backpy.logger.debug('restoring config')
-            os.unlink(backpy.CONFIG_FILE)
-            os.rename(cls.config_backup, backpy.CONFIG_FILE)
+            LOG.debug('restoring config')
+            os.unlink(CONFIG_FILE)
+            os.rename(cls.config_backup, CONFIG_FILE)
         logging.disable(logging.NOTSET)
 
     @classmethod
@@ -57,16 +64,16 @@ class BackpyTest(unittest.TestCase):
         return cls.timestamp
 
     def setUp(self):
-        backpy.logger.debug('starting test %s', unittest.TestCase.id(self))
+        LOG.debug('starting test %s', unittest.TestCase.id(self))
         # start test with blank config
-        if os.path.exists(backpy.CONFIG_FILE):
-            os.unlink(backpy.CONFIG_FILE)
-        backpy.init(backpy.CONFIG_FILE)
+        if os.path.exists(CONFIG_FILE):
+            os.unlink(CONFIG_FILE)
+        init(CONFIG_FILE)
 
         # and blank resource dir
-        res_dir = os.path.join(backpy.TEMP_DIR, 'resources')
+        res_dir = os.path.join(TEMP_DIR, 'resources')
         if os.path.exists(res_dir):
-            backpy.delete_temp_files(res_dir)
+            delete_temp_files(res_dir)
 
         # copy resources
         copytree(os.path.join(self.project_dir, 'resources'), res_dir)
@@ -80,7 +87,7 @@ class BackpyTest(unittest.TestCase):
         else:
             src = os.path.join(self.src_root, 'one')
         dest = os.path.join(self.dest_root, 'one')
-        backpy.add_directory(backpy.CONFIG_FILE, src, dest)
+        add_directory(CONFIG_FILE, src, dest)
 
     def add_six_seven_folder(self, rel_path=False):
         if rel_path:
@@ -88,11 +95,11 @@ class BackpyTest(unittest.TestCase):
         else:
             src = os.path.join(self.src_root, 'six seven')
         dest = os.path.join(self.dest_root, 'six seven')
-        backpy.add_directory(backpy.CONFIG_FILE, src, dest)
+        add_directory(CONFIG_FILE, src, dest)
 
     @staticmethod
     def add_global_skips(skips):
-        backpy.add_global_skip(backpy.CONFIG_FILE, skips)
+        add_global_skip(CONFIG_FILE, skips)
 
     @staticmethod
     def file_contents(filename):
@@ -120,8 +127,8 @@ class BackpyTest(unittest.TestCase):
 
     # backup/restore methods for use in more than one test
     def do_backup(self):
-        for directory in backpy.read_directory_list(backpy.CONFIG_FILE):
-            backpy.perform_backup(directory, self.mock_timestamp())
+        for directory in read_directory_list(CONFIG_FILE):
+            perform_backup(directory, self.mock_timestamp())
 
     def get_files_in_src(self):
         return os.listdir(self.src_root)
@@ -145,31 +152,31 @@ class BackpyTest(unittest.TestCase):
 
     # generic file delete method
     def delete_files(self, filepath):
-        backpy.delete_temp_files(filepath)
+        delete_temp_files(filepath)
 
     # delete a file
     def delete_one_four_five(self):
-        backpy.delete_temp_files(os.path.join(self.src_root, 'one', 'four', 'five'))
+        delete_temp_files(os.path.join(self.src_root, 'one', 'four', 'five'))
 
     def delete_one_nine_ten(self):
-        backpy.delete_temp_files(os.path.join(self.src_root, 'one', 'nine ten'))
+        delete_temp_files(os.path.join(self.src_root, 'one', 'nine ten'))
 
     # delete a folder
     def delete_one_four(self):
-        backpy.delete_temp_files(os.path.join(self.src_root, 'one', 'four'))
+        delete_temp_files(os.path.join(self.src_root, 'one', 'four'))
 
     # delete a folder
     def delete_six_seven(self):
-        backpy.delete_temp_files(os.path.join(self.src_root, 'six seven'))
+        delete_temp_files(os.path.join(self.src_root, 'six seven'))
 
     def delete_all_folders(self):
-        backpy.delete_temp_files(self.src_root)
+        delete_temp_files(self.src_root)
 
     def do_restore(self, files=None, chosen_index=None):
-        backpy.perform_restore(backpy.read_directory_list(backpy.CONFIG_FILE), files, chosen_index)
+        perform_restore(read_directory_list(CONFIG_FILE), files, chosen_index)
 
     def create_folder(self, folderpath):
-        backpy.logger.debug('creating folder %s', folderpath)
+        LOG.debug('creating folder %s', folderpath)
         os.mkdir(folderpath)
 
     def create_file(self, filepath, text):

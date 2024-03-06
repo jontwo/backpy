@@ -2,7 +2,9 @@
 
 import os
 
-import backpy
+from backpy.backpy import perform_restore
+from backpy.backup import Backup, TEMP_DIR
+from backpy.helpers import delete_temp_files
 from . import common
 
 
@@ -23,7 +25,7 @@ class RestoreTest(common.BackpyTest):
         # start test with blank config
         super(RestoreTest, self).setUp()
         # clear dest folder
-        backpy.delete_temp_files(self.dest_root)
+        delete_temp_files(self.dest_root)
         # add some entries to config
         self.add_one_folder()
         self.add_six_seven_folder()
@@ -206,13 +208,13 @@ class RestoreTest(common.BackpyTest):
         orig_path = os.path.join(self.src_root, 'one', 'nine ten')
         expected_text = 'more text'
         # file location inside zip
-        _, zip_path = backpy.Backup.get_member_name(orig_path)
+        _, zip_path = Backup.get_member_name(orig_path)
         # new restore path
-        restore_dir = os.path.join(backpy.TEMP_DIR, 'resources', 'alt_restore_dir')
+        restore_dir = os.path.join(TEMP_DIR, 'resources', 'alt_restore_dir')
 
         # restore file to alternate path
-        backpy.perform_restore([["", os.path.join(self.dest_root, 'one')]], files=['nine ten'],
-                               restore_path=restore_dir)
+        perform_restore([["", os.path.join(self.dest_root, 'one')]], files=['nine ten'],
+                        restore_path=restore_dir)
 
         # check restored file contents
         actual_text = self.file_contents(os.path.join(restore_dir, zip_path))
@@ -226,13 +228,13 @@ class RestoreTest(common.BackpyTest):
         orig_path = os.path.join(self.src_root, 'six seven')
         expected_text = 'text'
         # file location inside zip
-        _, zip_path = backpy.Backup.get_member_name(orig_path)
+        _, zip_path = Backup.get_member_name(orig_path)
         # new restore path
-        restore_dir = os.path.join(backpy.TEMP_DIR, 'resources', 'alt_restore_dir')
+        restore_dir = os.path.join(TEMP_DIR, 'resources', 'alt_restore_dir')
 
         # restore file to alternate path
-        backpy.perform_restore([["", os.path.join(self.dest_root, 'six seven')]],
-                               restore_path=restore_dir)
+        perform_restore([["", os.path.join(self.dest_root, 'six seven')]],
+                        restore_path=restore_dir)
 
         # check restored file contents
         actual_text = self.file_contents(os.path.join(restore_dir, zip_path, 'eight'))
