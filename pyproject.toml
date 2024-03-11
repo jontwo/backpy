@@ -1,0 +1,64 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = 'backpy'
+version = '1.6.3'
+description = 'Python backup utility'
+requires-python = ">= 3.8"
+authors = [
+    {name = 'Steffen Schneider', email = 'stes@users.noreply.github.com'}
+]
+maintainers = [
+    {name = 'Jon Morris', email = 'jontwo@users.noreply.github.com'}
+]
+readme = "README.md"
+license = {text = "BSD License"}
+keywords = ["backup"]
+classifiers=[
+    'Development Status :: 4 - Beta',
+    'Environment :: Console',
+    'License :: OSI Approved :: BSD License',
+    'Programming Language :: Python :: 3.8',
+    'Programming Language :: Python :: 3.9',
+    'Programming Language :: Python :: 3.10',
+    'Topic :: System :: Archiving :: Backup'
+]
+urls = {Homepage = 'https://github.com/jontwo/backpy'}
+
+[project.optional-dependencies]
+test = ['pytest', 'pytest-cov']
+
+[project.scripts]
+backpy = 'backpy.backpy:run_backpy'
+
+[tool.setuptools]
+packages = ['backpy']
+
+[tool.pytest.ini_options]
+addopts = "-ra -q --tb=short"
+testpaths = ["backpy", "backpy_tests"]
+
+[tool.coverage.run]
+source = ["backpy"]
+relative_files = true
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "import",
+    "def main\\(\\):",
+    "def add_parser_args\\(",
+    "if __name__ == .__main__.:"
+]
+show_missing = true
+
+[tool.isort]
+line_length = 100
+profile = "black"
+atomic = true
+no_lines_before = ["LOCALFOLDER"]
+include_trailing_comma = false
+filter_files = true
+supported_extensions = ["py"]
