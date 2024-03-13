@@ -30,8 +30,8 @@ import logging.handlers
 import os
 import sys
 
-LOG_NAME = 'backpy'
-LOG_FILE = os.path.join(os.path.expanduser('~'), 'backpy.log')
+LOG_NAME = "backpy"
+LOG_FILE = os.path.join(os.path.expanduser("~"), "backpy.log")
 _logger = logging.getLogger(LOG_NAME)
 
 
@@ -39,6 +39,7 @@ class SometimesRotatingFileHandler(logging.handlers.RotatingFileHandler):  # pra
     """Custom class to handle windows file locks sometimes preventing file rollover.
     If it does, just carry on and hope the lock will be released before the log file
     fills up the drive..."""
+
     def doRollover(self):
         """Try and rollover log, do not raise if it fails."""
         try:
@@ -53,11 +54,11 @@ class SpecialFormatter(logging.Formatter):
     FORMATS = {
         logging.DEBUG: "DEBUG: %(lineno)d: %(message)s",
         logging.INFO: "%(message)s",
-        'DEFAULT': "%(levelname)s: %(message)s"
+        "DEFAULT": "%(levelname)s: %(message)s",
     }
 
     def format(self, record):  # noqa: A003,D102
-        self._fmt = self.FORMATS.get(record.levelno, self.FORMATS['DEFAULT'])
+        self._fmt = self.FORMATS.get(record.levelno, self.FORMATS["DEFAULT"])
         return super().format(record)
 
 
@@ -83,6 +84,6 @@ def set_up_logging(level=1):
         _logger.addHandler(sh)
     fh = SometimesRotatingFileHandler(LOG_FILE, maxBytes=1000000, backupCount=3)
     fh.setLevel(logging.DEBUG)
-    ff = logging.Formatter('%(asctime)s: %(levelname)s: %(funcName)s: %(message)s')
+    ff = logging.Formatter("%(asctime)s: %(levelname)s: %(funcName)s: %(message)s")
     fh.setFormatter(ff)
     _logger.addHandler(fh)

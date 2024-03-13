@@ -21,12 +21,12 @@ def log_subprocess_output(pipe):
     if not pipe:
         return
 
-    for line in map(str.strip, pipe.split('\n')):
+    for line in map(str.strip, pipe.split("\n")):
         if line:
-            LOG.debug('ADB: %s', line)
+            LOG.debug("ADB: %s", line)
 
 
-def call_adb(cmd, err_msg='adb error', check_output=False):
+def call_adb(cmd, err_msg="adb error", check_output=False):
     # call adb command and suppress output
     try:
         process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
@@ -41,14 +41,12 @@ def call_adb(cmd, err_msg='adb error', check_output=False):
 
 
 def push_files(src, dest):
-    LOG.warning('pushing %s to %s', src, dest)
-    call_adb(['adb', 'push', src, dest], 'could not copy files to phone')
+    LOG.warning("pushing %s to %s", src, dest)
+    call_adb(["adb", "push", src, dest], "could not copy files to phone")
 
 
 def list_files(folder):
-    files = subprocess.check_output(
-        ['adb', 'shell', 'ls', folder]
-    ).decode('latin1').split('\n')
+    files = subprocess.check_output(["adb", "shell", "ls", folder]).decode("latin1").split("\n")
     return [f.strip() for f in files]
 
 
@@ -58,9 +56,9 @@ class AdbTest(common.BackpyTest):
     @classmethod
     def setUpClass(cls):
         # check adb is installed and one device is connected
-        adb_exe = 'adb.exe' if is_windows() else 'adb'
+        adb_exe = "adb.exe" if is_windows() else "adb"
         got_adb = False
-        for folder in os.getenv('PATH').split(os.pathsep):
+        for folder in os.getenv("PATH").split(os.pathsep):
             if os.path.exists(os.path.join(folder, adb_exe)):
                 got_adb = True
                 break
@@ -69,7 +67,7 @@ class AdbTest(common.BackpyTest):
             raise unittest.SkipTest("adb not found")
 
         cls.devices = []
-        process = subprocess.Popen(['adb', 'devices'], stdout=subprocess.PIPE)
+        process = subprocess.Popen(["adb", "devices"], stdout=subprocess.PIPE)
         process.stdout.readline()  # Skip the first line
         for line in process.stdout:
             line = line.strip()
@@ -79,21 +77,17 @@ class AdbTest(common.BackpyTest):
                 except ValueError:
                     continue
 
-                if dev_state == 'device':
+                if dev_state == "device":
                     cls.devices.append(adb_id)
 
         if len(cls.devices) == 0:
-            raise unittest.SkipTest(
-                "no android devices found, cannot test adb"
-            )
+            raise unittest.SkipTest("no android devices found, cannot test adb")
         if len(cls.devices) > 1:
-            raise unittest.SkipTest(
-                "more than 1 android device found, cannot run tests"
-            )
+            raise unittest.SkipTest("more than 1 android device found, cannot run tests")
         # backup any existing config
         # set root backup dir
         super(AdbTest, cls).setUpClass()
-        cls.android_root = '/sdcard/tmp/backpy/source_files'
+        cls.android_root = "/sdcard/tmp/backpy/source_files"
 
     @classmethod
     def tearDownClass(cls):
@@ -107,54 +101,54 @@ class AdbTest(common.BackpyTest):
         # clear dest folder
         delete_temp_files(self.dest_root)
         # copy source files onto device
-        push_files(
-            os.path.join(self.project_dir, 'resources', 'source_files'),
-            self.android_root
-        )
+        push_files(os.path.join(self.project_dir, "resources", "source_files"), self.android_root)
 
-        self.one_folder = os.path.join(self.dest_root, 'one')
-        self.six_seven_folder = os.path.join(self.dest_root, 'six seven')
+        self.one_folder = os.path.join(self.dest_root, "one")
+        self.six_seven_folder = os.path.join(self.dest_root, "six seven")
         self.files_to_backup = [
-            ['{0}/one'.format(self.android_root), self.one_folder],
-            ['{0}/six seven'.format(self.android_root), self.six_seven_folder]
+            ["{0}/one".format(self.android_root), self.one_folder],
+            ["{0}/six seven".format(self.android_root), self.six_seven_folder],
         ]
-        LOG.debug('AdbTest setUp done')
+        LOG.debug("AdbTest setUp done")
 
     def tearDown(self):
         super(AdbTest, self).tearDown()
         self.delete_files(self.android_root)
 
     def get_android_path(self, pc_path):
-        return pc_path.replace(self.src_root, self.android_root).replace(os.sep, '/')
+        return pc_path.replace(self.src_root, self.android_root).replace(os.sep, "/")
 
     def delete_files(self, path):
-        call_adb(['adb', 'shell', 'rm', '-rf', path], 'could not delete source files from phone')
+        call_adb(["adb", "shell", "rm", "-rf", path], "could not delete source files from phone")
 
     def create_file(self, filepath, text):
         # create file on PC then copy to phone
-        LOG.debug('adb create file %s', filepath)
+        LOG.debug("adb create file %s", filepath)
         super(AdbTest, self).create_file(filepath, text)
         android_filepath = self.get_android_path(filepath)
         push_files(filepath, android_filepath)
 
     def create_folder(self, folderpath):
         # create folder both on PC and on phone
-        LOG.debug('adb create folder %s', folderpath)
+        LOG.debug("adb create folder %s", folderpath)
         super(AdbTest, self).create_folder(folderpath)
         android_folderpath = self.get_android_path(folderpath)
-        call_adb(['adb', 'shell', 'mkdir', android_folderpath], 'could not create folder on phone')
+        call_adb(["adb", "shell", "mkdir", android_folderpath], "could not create folder on phone")
 
     def text_in_file(self, filename, text):
         android_filename = self.get_android_path(filename)
-        file_contents = subprocess.check_output(['adb', 'shell', 'cat', android_filename])
+        file_contents = subprocess.check_output(["adb", "shell", "cat", android_filename])
         return text in file_contents
 
     def get_last_line(self, filename):
         android_filename = self.get_android_path(filename)
-        lines = subprocess.check_output(
-            ['adb', 'shell', 'cat', android_filename]
-        ).decode('latin1').strip().split('\n')
-        return lines[-1] if lines else ''
+        lines = (
+            subprocess.check_output(["adb", "shell", "cat", android_filename])
+            .decode("latin1")
+            .strip()
+            .split("\n")
+        )
+        return lines[-1] if lines else ""
 
     def do_backup(self):
         for f in self.files_to_backup:
@@ -167,35 +161,35 @@ class AdbTest(common.BackpyTest):
         return list_files(self.android_root)
 
     def get_files_in_one(self):
-        return list_files('{0}/one'.format(self.android_root))
+        return list_files("{0}/one".format(self.android_root))
 
     def get_files_in_four(self):
-        return list_files('{0}/one/four'.format(self.android_root))
+        return list_files("{0}/one/four".format(self.android_root))
 
     def get_one_four_five_path(self):
-        return '{0}/one/four/five'.format(self.android_root)
+        return "{0}/one/four/five".format(self.android_root)
 
     def get_six_seven_path(self):
-        return '{0}/six seven'.format(self.android_root)
+        return "{0}/six seven".format(self.android_root)
 
     def change_one_four_five(self, text):
         super(AdbTest, self).change_one_four_five(text)
         push_files(
-            os.path.join(self.src_root, 'one', 'four', 'five'),
-            '{0}/one/four/five'.format(self.android_root)
+            os.path.join(self.src_root, "one", "four", "five"),
+            "{0}/one/four/five".format(self.android_root),
         )
 
     def delete_one_four(self):
-        self.delete_files('{0}/one/four'.format(self.android_root))
+        self.delete_files("{0}/one/four".format(self.android_root))
 
     def delete_one_four_five(self):
-        self.delete_files('{0}/one/four/five'.format(self.android_root))
+        self.delete_files("{0}/one/four/five".format(self.android_root))
 
     def delete_one_nine_ten(self):
-        self.delete_files('{0}/one/nine ten'.format(self.android_root))
+        self.delete_files("{0}/one/nine ten".format(self.android_root))
 
     def delete_six_seven(self):
-        self.delete_files('{0}/six seven'.format(self.android_root))
+        self.delete_files("{0}/six seven".format(self.android_root))
 
     def delete_all_folders(self):
         self.delete_files(self.android_root)
@@ -203,12 +197,11 @@ class AdbTest(common.BackpyTest):
     def get_file_timestamp(self, filename):
         android_filename = self.get_android_path(filename)
         str_time = call_adb(
-            ['adb', 'shell', 'ls', '-al', android_filename],
-            'could not get timestamp', True
-        ).decode('latin1')
-        m = re.search(r'(\d{4}-\d{2}-\d{2} \d{2}:\d{2})', str_time)
+            ["adb", "shell", "ls", "-al", android_filename], "could not get timestamp", True
+        ).decode("latin1")
+        m = re.search(r"(\d{4}-\d{2}-\d{2} \d{2}:\d{2})", str_time)
         if m and m.groups():
-            time_time = time.strptime(m.group(1), '%Y-%m-%d %H:%M')
+            time_time = time.strptime(m.group(1), "%Y-%m-%d %H:%M")
             return time.mktime(time_time)
         return 0
 
@@ -235,11 +228,11 @@ class AdbBackupTest(AdbTest, backup_test.BackupTest):
         # start test with blank config
         super(AdbBackupTest, self).setUp()
 
-    @pytest.mark.skip('not applicable')
+    @pytest.mark.skip("not applicable")
     def test_add_skip_and_backup(self):
         pass
 
-    @pytest.mark.skip('not applicable')
+    @pytest.mark.skip("not applicable")
     def test_add_skip_with_wildcard(self):
         pass
 
@@ -261,7 +254,7 @@ class AdbRestoreTest(AdbTest, restore_test.RestoreTest):
         # start test with blank config
         super(AdbRestoreTest, self).setUp()
 
-    @pytest.mark.skip('not applicable')
+    @pytest.mark.skip("not applicable")
     # does not apply to adb as hashes are partly based on timestamp
     # if timestamp changes, hash will change, so file will be restored
     # unlike pc, where changing timestamp will not cause file to be

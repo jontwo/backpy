@@ -35,10 +35,10 @@ from shutil import rmtree
 
 from .logger import LOG_NAME
 
-DEFAULT_KEY = 'default'
-SKIP_KEY = 'global skips'
-VERSION_KEY = 'backpy version'
-CONFIG_FILE = os.path.join(os.path.expanduser('~'), '.backpy')
+DEFAULT_KEY = "default"
+SKIP_KEY = "global skips"
+VERSION_KEY = "backpy version"
+CONFIG_FILE = os.path.join(os.path.expanduser("~"), ".backpy")
 LOG = logging.getLogger(LOG_NAME)
 
 
@@ -54,7 +54,7 @@ def delete_temp_files(path):
             os.chmod(path, 0o777)
             os.unlink(path)
         except OSError:
-            LOG.warning('could not delete %s', path)
+            LOG.warning("could not delete %s", path)
         return
 
     if os.path.isdir(path):
@@ -62,7 +62,7 @@ def delete_temp_files(path):
             os.chmod(path, 0o777)
             rmtree(path)
         except OSError:
-            LOG.warning('could not delete %s', path)
+            LOG.warning("could not delete %s", path)
 
 
 def make_directory(path):
@@ -71,7 +71,7 @@ def make_directory(path):
     :param path: path of directory to be created
     :raise OSError: if directory cannot be created
     """
-    LOG.debug('making directory %s', path)
+    LOG.debug("making directory %s", path)
     try:
         if os.path.pardir in path:
             os.mkdir(path)
@@ -80,7 +80,7 @@ def make_directory(path):
             # only works if dest does not contain pardir (..)
             os.makedirs(path)
     except OSError:
-        LOG.error('could not create directory')
+        LOG.error("could not create directory")
 
 
 def string_equals(s1, s2):
@@ -179,26 +179,26 @@ def handle_arg_spaces(old_args):
     :param old_args: original input arguments
     :return: args list with quotes and spaces corrected
     """
-    num_quotes = len(str(old_args)) - len(str(old_args).replace('\"', ''))
+    num_quotes = len(str(old_args)) - len(str(old_args).replace('"', ""))
     if num_quotes % 2 != 0:
-        LOG.error('mismatched quotes in input argument: %s', old_args)
+        LOG.error("mismatched quotes in input argument: %s", old_args)
     elif num_quotes != 0:
         in_quote = False
         rebuilt_args = []
-        quoted_arg = ''
+        quoted_arg = ""
         for arg in old_args:
             if in_quote:
-                if arg[-1] == '\"':
+                if arg[-1] == '"':
                     # has closing quote, finish rebuilding
-                    quoted_arg = '%s %s' % (quoted_arg, arg[:-1])
+                    quoted_arg = "%s %s" % (quoted_arg, arg[:-1])
                     rebuilt_args.append(quoted_arg)
                     in_quote = False
-                    quoted_arg = ''
+                    quoted_arg = ""
                 else:
                     # keep rebuilding
-                    quoted_arg = '%s %s' % (quoted_arg, arg)
+                    quoted_arg = "%s %s" % (quoted_arg, arg)
             else:
-                if arg[0] == '\"':
+                if arg[0] == '"':
                     # has opening quote, start rebuilding
                     quoted_arg = arg[1:]
                     in_quote = True
@@ -221,17 +221,17 @@ def get_file_hash(fullname, size=None, ctime=None):
     """
     md5hash = None
     if size or ctime:
-        md5hash = md5(fullname.encode('latin1'))
+        md5hash = md5(fullname.encode("latin1"))
         if size:
-            md5hash.update(str(size).encode('latin1'))
+            md5hash.update(str(size).encode("latin1"))
         if ctime:
-            md5hash.update(str(ctime).encode('latin1'))
+            md5hash.update(str(ctime).encode("latin1"))
     else:
         try:
-            with io.open(fullname, encoding='latin1') as f:
-                md5hash = md5(f.read().encode('latin1', errors='ignore'))
+            with io.open(fullname, encoding="latin1") as f:
+                md5hash = md5(f.read().encode("latin1", errors="ignore"))
         except (IOError, MemoryError):
-            LOG.warning('could not process file: %s', fullname)
+            LOG.warning("could not process file: %s", fullname)
 
     return md5hash.hexdigest() if md5hash else None
 
@@ -256,17 +256,17 @@ def read_config_file(path):
     :param path: path of config file
     :return: dict of file contents
     """
-    this_key = 'default'
+    this_key = "default"
     items = {this_key: []}
     if os.path.exists(path):
-        with open(path, 'r') as f:
+        with open(path, "r") as f:
             for line in f.readlines():
-                header = re.match(r'\[(.*)]', line.strip())
+                header = re.match(r"\[(.*)]", line.strip())
                 if header:
                     header_text = header.group(1)
-                    if '=' in header_text:
+                    if "=" in header_text:
                         # handle parameters
-                        param, val = header_text.split('=')
+                        param, val = header_text.split("=")
                         items[param] = val
                     else:
                         this_key = header_text
@@ -283,15 +283,15 @@ def write_config_file(path, values):
     :param path: path of config file
     :param values: dictionary of key/value pairs to write
     """
-    LOG.debug('writing values to config: %s', values)
+    LOG.debug("writing values to config: %s", values)
     try:
         with open(path, "w+") as fp:
             for k, v in values.items():
-                fp.write('[{}]\n'.format(k))
+                fp.write("[{}]\n".format(k))
                 for item in v:
-                    fp.write('{}\n'.format(item))
+                    fp.write("{}\n".format(item))
     except IOError:
-        LOG.warning('could not write to config file %s', path)
+        LOG.warning("could not write to config file %s", path)
 
 
 def update_config_file(path, key, val, overwrite=True):
@@ -302,7 +302,7 @@ def update_config_file(path, key, val, overwrite=True):
     :param val: value to write, as a list
     :param overwrite: True to replace the existing value, False to append the new value
     """
-    LOG.debug('updating config key %s', key)
+    LOG.debug("updating config key %s", key)
     config = read_config_file(path)
     if not isinstance(val, list):
         val = [val]
@@ -330,9 +330,9 @@ def get_config_key(path, key):
 
 def is_osx():
     """Check current operating system is OSX"""
-    return platform.system() == 'Darwin'
+    return platform.system() == "Darwin"
 
 
 def is_windows():
     """Check current operating system is Windows"""
-    return platform.system() == 'Windows'
+    return platform.system() == "Windows"
