@@ -4,6 +4,7 @@ import glob
 import logging
 import os
 import unittest
+from unittest import mock
 from shutil import copy2, copytree
 
 from backpy.backpy import (
@@ -73,7 +74,9 @@ class BackpyTest(unittest.TestCase):
         # start test with blank config
         if os.path.exists(CONFIG_FILE):
             os.unlink(CONFIG_FILE)
-        init(CONFIG_FILE)
+        # Make sure correct version is in config file
+        with mock.patch("backpy.backpy.version", return_value=self.get_backpy_version()):
+            init(CONFIG_FILE)
 
         # and blank resource dir
         res_dir = os.path.join(TEMP_DIR, "resources")

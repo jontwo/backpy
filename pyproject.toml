@@ -42,10 +42,10 @@ namespaces = false
 
 [tool.pytest.ini_options]
 addopts = "-ra -q --tb=short"
-testpaths = ["backpy", "tests"]
+testpaths = ["src/backpy", "src/tests"]
 
 [tool.coverage.run]
-source = ["backpy"]
+source = ["src/backpy"]
 relative_files = true
 
 [tool.coverage.report]
