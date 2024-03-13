@@ -34,11 +34,15 @@ test = ['pytest', 'pytest-cov']
 backpy = 'backpy.backpy:run_backpy'
 
 [tool.setuptools]
-packages = ['backpy']
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+namespaces = false
 
 [tool.pytest.ini_options]
 addopts = "-ra -q --tb=short"
-testpaths = ["backpy", "backpy_tests"]
+testpaths = ["backpy", "tests"]
 
 [tool.coverage.run]
 source = ["backpy"]

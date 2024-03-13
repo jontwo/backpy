@@ -24,7 +24,7 @@ from . import common
 
 
 class HelpersTest(common.BackpyTest):
-    config_path = "."
+    config_path = ""
 
     @classmethod
     def setUpClass(cls):

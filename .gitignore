@@ -3,9 +3,10 @@
 build/*
 dist/*
 backpy.egg-info/*
+src/backpy.egg-info/*
 *.pyc
 *.orig
-resources/dest_files/.backpy
+src/tests/resources/dest_files/.backpy
 .coverage
 coverage_*
 .noseids

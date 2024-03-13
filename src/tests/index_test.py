@@ -6,7 +6,7 @@ from backpy.backpy import add_global_skip
 from backpy.backup import TEMP_DIR
 from backpy.file_index import FileIndex
 from backpy.helpers import CONFIG_FILE, get_file_hash, is_osx, is_windows
-from backpy_tests.common import BackpyTest
+from .common import BackpyTest
 
 
 class IndexTest(BackpyTest):

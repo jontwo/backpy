@@ -23,7 +23,7 @@ LOG = logging.getLogger(LOG_NAME)
 
 class BackpyTest(unittest.TestCase):
     config_backup = os.path.expanduser("~/.orig")
-    project_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    project_dir = os.path.dirname(os.path.abspath(__file__))
     dest_root = ""
     src_root = ""
     restore_config = False
@@ -198,6 +198,6 @@ class BackpyTest(unittest.TestCase):
             f.write(file_content)
 
     def get_backpy_version(self):
-        for line in open(os.path.join(self.project_dir, "pyproject.toml")):
+        for line in open(os.path.join(self.project_dir, "..", "..", "pyproject.toml")):
             if line.startswith("version ="):
                 return eval(line.split(" = ")[-1])

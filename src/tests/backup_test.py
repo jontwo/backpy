@@ -7,7 +7,7 @@ from datetime import datetime
 from backpy.backpy import add_skip
 from backpy.backup import Backup
 from backpy.helpers import CONFIG_FILE, delete_temp_files, is_windows
-from backpy_tests.common import BackpyTest
+from .common import BackpyTest
 
 
 class BackupTest(BackpyTest):
