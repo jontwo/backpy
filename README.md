@@ -5,6 +5,6 @@ backpy
 
 backpy is a simple command line tool to perform backups.
 
-written in python, version 3.7 - 3.9
+written in python, version 3.8 - 3.10
 
 copyright (c) 2012, stes
