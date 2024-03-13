@@ -50,8 +50,8 @@ LOG = logging.getLogger(LOG_NAME)
 
 
 class Backup:
-    """Backup class
-    Manages file handling during backup and restore
+    """Backup class.
+    Manages file handling during backup and restore.
     """
 
     def __init__(self, path, index, parent=None, timestamp=None):
@@ -64,26 +64,26 @@ class Backup:
     @staticmethod
     def get_timestamp():
         """
-        Static method to allow mocking of timestamp during unit tests
-        :return: current time in format 19800101120000
+        Static method to allow mocking of timestamp during unit tests.
+        :return: Current time in format 19800101120000.
         """
         return datetime.now().strftime("%Y%m%d%H%M%S")
 
     def get_index(self):
-        """Get this backup's index"""
+        """Get this backup's index."""
         return self.__new_index__
 
     def get_tarpath(self):
-        """Get the location of this backup zip on disk"""
+        """Get the location of this backup zip on disk."""
         return os.path.join(self.__path__, "%s_backup.tar.gz" % self.__timestamp__)
 
     def write_to_disk(self):
-        """Add all new and modified files to the zip file for this backup"""
+        """Add all new and modified files to the zip file for this backup."""
         if not self.__new_index__.files():
-            LOG.warning("no files to back up")
+            LOG.warning("No files to back up")
             return
 
-        LOG.debug("writing files to backup")
+        LOG.debug("Writing files to backup")
         added = 0
         # use closing for python 2.6 compatibility
         with closing(tarfile.open(self.get_tarpath(), "w:gz")) as tar:
@@ -95,7 +95,7 @@ class Backup:
             delete_temp_files(path)
             # write files
             for fname in self.__new_index__.get_diff(self.__old_index__):
-                LOG.info("adding %s...", fname)
+                LOG.info("Adding %s...", fname)
                 if self.__adb__:  # pragma: no cover
                     # pull files off phone into temp folder before backing up
                     temp_path = os.path.join(TEMP_DIR, ".%s_adb" % self.__timestamp__)
@@ -115,7 +115,7 @@ class Backup:
                         tar.add(temp_name, fname)
                         added += 1
                     except subprocess.CalledProcessError:
-                        LOG.warning("could not pull %s from phone", fname)
+                        LOG.warning("Could not pull %s from phone", fname)
                     finally:
                         delete_temp_files(temp_name)
 
@@ -144,35 +144,35 @@ class Backup:
             LOG.info("%s files removed", len(removed))
         else:
             delete_temp_files(self.get_tarpath())
-            LOG.warning("no files changed - nothing to back up")
+            LOG.warning("No files changed - nothing to back up")
 
     def contains_file(self, filename, exact_match=True):
         """
-        Look for a specific file in the index
-        :param filename: name of file
-        :param exact_match: true to match the name exactly, false for partial matches
-        :return: the file hash or None if not found
+        Look for a specific file in the index.
+        :param filename: Name of file.
+        :param exact_match: If True, match the name exactly, if False, do a partial match.
+        :return: The file hash or None if not found.
         """
-        LOG.debug("find file %s", filename)
+        LOG.debug("Find file %s", filename)
         return self.__new_index__.file_hash(filename, exact_match)
 
     def contains_folder(self, foldername, exact_match=True):
         """
-        Look for a specific folder in the index
-        :param foldername: name of folder
-        :param exact_match: true to match the name exactly, false for partial matches
-        :return: true if f is in the index, false if not
+        Look for a specific folder in the index.
+        :param foldername: name of folder.
+        :param exact_match: If True, match the name exactly, if False do a partial match.
+        :return: True if f is in the index, False if not.
         """
-        LOG.debug("find folder %s", foldername)
+        LOG.debug("Find folder %s", foldername)
         return self.__new_index__.is_folder(foldername, exact_match)
 
     def restore_folder(self, folder, restore_path=None):
         """
-        Restore the selected folder to its original location on disk
-        :param folder: Name of folder to restore
-        :param restore_path: An alternative location to restore to
+        Restore the selected folder to its original location on disk.
+        :param folder: Name of folder to restore.
+        :param restore_path: An alternative location to restore to.
         """
-        LOG.debug("restoring folder %s from %s", folder, self.get_tarpath())
+        LOG.debug("Restoring folder %s from %s", folder, self.get_tarpath())
         fullname = folder
         # get destination dir
         dest = os.path.dirname(folder)
@@ -180,11 +180,11 @@ class Backup:
             # make sure dest and file are full paths
             index = get_folder_index(folder, self.__new_index__.dirs())
             if index is None:
-                LOG.error("cannot find folder to restore")
+                LOG.error("Cannot find folder to restore")
                 return
             fullname = self.__new_index__.dirs()[index]
             dest = os.path.dirname(fullname)
-        LOG.debug("got dest dir %s", dest)
+        LOG.debug("Got dest dir %s", dest)
 
         # index destination dir
         dest_index = FileIndex(fullname, adb=self.__adb__)
@@ -200,11 +200,11 @@ class Backup:
 
     def restore_file(self, filename, restore_path=None):
         """
-        Restore the selected file to its original location on disk
-        :param filename: Name of file to restore
-        :param restore_path: An alternative location to restore to
+        Restore the selected file to its original location on disk.
+        :param filename: Name of file to restore.
+        :param restore_path: An alternative location to restore to.
         """
-        LOG.debug("restoring file %s from %s", filename, self.get_tarpath())
+        LOG.debug("Restoring file %s from %s", filename, self.get_tarpath())
         fullname = filename
         # get destination dir
         dest = os.path.dirname(filename)
@@ -216,7 +216,7 @@ class Backup:
                 return
             fullname = self.__new_index__.files()[index]
             dest = os.path.dirname(fullname)
-        LOG.debug("got dest dir %s", dest)
+        LOG.debug("Got dest dir %s", dest)
 
         # restore if file changed or not found in dest
         root_path, member_name = self.get_member_name(fullname)
@@ -226,12 +226,12 @@ class Backup:
         dest_path = os.path.join(root_path, member_name)
         if os.path.exists(dest_path):
             if get_file_hash(dest_path) == self.__new_index__.file_hash(fullname):
-                LOG.info("file unchanged, cancelling restore")
+                LOG.info("File unchanged, cancelling restore")
                 return
             else:
-                LOG.debug("file changed")
+                LOG.debug("File changed")
         else:
-            LOG.debug("file not found")
+            LOG.debug("File not found")
 
         LOG.info("restoring %s from %s", member_name, self.get_tarpath())
         with closing(tarfile.open(self.get_tarpath(), "r:*")) as tar:
@@ -243,7 +243,7 @@ class Backup:
                     os.path.abspath(temp_path), file_info.name.replace("/", os.sep)
                 )
                 try:
-                    LOG.debug("extracting %s to temp path %s", file_info.name, temp_path)
+                    LOG.debug("Extracting %s to temp path %s", file_info.name, temp_path)
                     tar.extractall(temp_path, [file_info])
                     process = subprocess.Popen(
                         ["adb", "push", temp_name, fullname],
@@ -255,7 +255,7 @@ class Backup:
                     if error:
                         LOG.warning(error.strip())
                 except subprocess.CalledProcessError:
-                    LOG.warning("could not push %s to phone", temp_name)
+                    LOG.warning("Could not push %s to phone", temp_name)
                 except KeyError:
                     # file may be in index but not backed up as it was unchanged from prev backup
                     LOG.info("%s not found in this backup", os.path.basename(member_name))
@@ -266,7 +266,7 @@ class Backup:
                 delete_temp_files(temp_path)
             else:
                 try:
-                    LOG.debug("extracting %s to %s", tar.getmember(member_name), root_path)
+                    LOG.debug("Extracting %s to %s", tar.getmember(member_name), root_path)
                     tar.extractall(root_path, [tar.getmember(member_name)])
                     LOG.debug(os.listdir(root_path))
                 except KeyError:
@@ -276,11 +276,11 @@ class Backup:
     @staticmethod
     def get_member_name(name):
         """
-        Convert full (source) path of file to path within tar
-        :param name: full path of file
-        :return: member name of file
+        Convert full (source) path of file to path within tar.
+        :param name: Full path of file.
+        :return: Member name of file.
         """
-        LOG.debug("getting member name for %s", name)
+        LOG.debug("Getting member name for %s", name)
         # splitdrive returns ['c:', '\path\to\member'] when we want ['c:\', 'path\to\member']
         split_member = os.path.splitdrive(name)
         root = split_member[0] + split_member[1][:1]
@@ -289,5 +289,5 @@ class Backup:
         if is_windows():
             member = member.replace("\\", "/")
 
-        LOG.debug("returning %s, %s", root, member)
+        LOG.debug("Returning %s, %s", root, member)
         return root, member

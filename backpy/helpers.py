@@ -46,7 +46,7 @@ def delete_temp_files(path):
     """
     Attempt to delete temporary files or folders in the given path.
     Just carry on if any can't be deleted.
-    :param path: name of file or folder to delete
+    :param path: Name of file or folder to delete.
     """
     if os.path.isfile(path):
         # single file - delete it and return
@@ -54,7 +54,7 @@ def delete_temp_files(path):
             os.chmod(path, 0o777)
             os.unlink(path)
         except OSError:
-            LOG.warning("could not delete %s", path)
+            LOG.warning("Could not delete %s", path)
         return
 
     if os.path.isdir(path):
@@ -62,16 +62,16 @@ def delete_temp_files(path):
             os.chmod(path, 0o777)
             rmtree(path)
         except OSError:
-            LOG.warning("could not delete %s", path)
+            LOG.warning("Could not delete %s", path)
 
 
 def make_directory(path):
     """
-    Creates a directory
-    :param path: path of directory to be created
-    :raise OSError: if directory cannot be created
+    Create a directory.
+    :param path: Path of directory to be created.
+    :raise OSError: If directory cannot be created.
     """
-    LOG.debug("making directory %s", path)
+    LOG.debug("Making directory %s", path)
     try:
         if os.path.pardir in path:
             os.mkdir(path)
@@ -80,15 +80,15 @@ def make_directory(path):
             # only works if dest does not contain pardir (..)
             os.makedirs(path)
     except OSError:
-        LOG.error("could not create directory")
+        LOG.error("Could not create directory")
 
 
 def string_equals(s1, s2):
     """
-    Compare two strings, ignoring case for Windows
-    :param s1: string to compare
-    :param s2: string to compare
-    :return: true if the strings are equal, false if not
+    Compare two strings, ignoring case for Windows.
+    :param s1: String to compare.
+    :param s2: String to compare.
+    :return: bool.
     """
     if is_windows():
         s1 = s1.lower()
@@ -98,10 +98,10 @@ def string_equals(s1, s2):
 
 def string_contains(s1, s2):
     """
-    Check if one string contains another, ignoring case for Windows
-    :param s1: string to search for
-    :param s2: string to search in
-    :return: true if s1 is found in s2, false if not
+    Check if one string contains another, ignoring case for Windows.
+    :param s1: String to search for.
+    :param s2: String to search in.
+    :return: bool.
     """
     if not s1 or not s2:
         return False
@@ -113,10 +113,10 @@ def string_contains(s1, s2):
 
 def string_startswith(s1, s2):
     """
-    Check if one string starts with another, ignoring case for Windows
-    :param s1: string to search for
-    :param s2: string to search in
-    :return: true if s2 starts with s1, false if not
+    Check if one string starts with another, ignoring case for Windows.
+    :param s1: String to search for.
+    :param s2: String to search in.
+    :return: bool.
     """
     if is_windows():
         s1 = s1.lower()
@@ -126,10 +126,10 @@ def string_startswith(s1, s2):
 
 def list_contains(s1, l2):
     """
-    Check if list contains string, ignoring case for Windows
-    :param s1: string to search for
-    :param l2: list to search in
-    :return: true if string is found in list, false if not
+    Check if list contains string, ignoring case for Windows.
+    :param s1: String to search for.
+    :param l2: List to search in.
+    :return: bool.
     """
     if is_windows():
         s1 = s1.lower()
@@ -140,10 +140,9 @@ def list_contains(s1, l2):
 def get_filename_index(s1, l2):
     """
     Get index for filename in list, ignoring case for Windows and ignoring path.
-    Returns None if not found
-    :param s1: name of file
-    :param l2: list to search in
-    :return: index number of file or None if not found
+    :param s1: Name of file.
+    :param l2: List to search in.
+    :return: Index number of file or None if not found.
     """
     if is_windows():
         s1 = s1.lower()
@@ -157,10 +156,10 @@ def get_filename_index(s1, l2):
 def get_folder_index(s1, l2):
     """
     Get index for folder in list, ignoring case for Windows.
-    Returns longest path possible, or None if not found
-    :param s1: name of folder
-    :param l2: list to search in
-    :return: index number of folder or None if not found
+    Returns longest path possible.
+    :param s1: Name of folder.
+    :param l2: List to search in.
+    :return: Index number of folder or None if not found.
     """
     if is_windows():
         s1 = s1.lower()
@@ -175,13 +174,13 @@ def get_folder_index(s1, l2):
 
 def handle_arg_spaces(old_args):
     """
-    Some shells mess up the quoted input arguments, if so, reassemble them
-    :param old_args: original input arguments
-    :return: args list with quotes and spaces corrected
+    Some shells mess up the quoted input arguments, if so, reassemble them.
+    :param old_args: Original input arguments.
+    :return: Args list with quotes and spaces corrected.
     """
     num_quotes = len(str(old_args)) - len(str(old_args).replace('"', ""))
     if num_quotes % 2 != 0:
-        LOG.error("mismatched quotes in input argument: %s", old_args)
+        LOG.error("Mismatched quotes in input argument: %s", old_args)
     elif num_quotes != 0:
         in_quote = False
         rebuilt_args = []
@@ -214,10 +213,10 @@ def get_file_hash(fullname, size=None, ctime=None):
     """
     Return a string representing the md5 hash of the given file.
     Use size and/or ctime args if file is on a phone and can't be read.
-    :param fullname: full path of file
-    :param size: file size (optional)
-    :param ctime: file create time (optional)
-    :return: hex string hash of file
+    :param fullname: Full path of file.
+    :param size: File size.
+    :param ctime: File create time.
+    :return: Hex string hash of file.
     """
     md5hash = None
     if size or ctime:
@@ -239,8 +238,8 @@ def get_file_hash(fullname, size=None, ctime=None):
 def get_config_version(path):
     """
     Get the version from the current config file.
-    :param path: path of config file
-    :return: version string
+    :param path: Path of config file.
+    :return: Version string.
     """
     version = get_config_key(path, VERSION_KEY)
     if version:
@@ -252,9 +251,9 @@ def read_config_file(path):
     """
     Read a backpy config file (.backpy, .index, etc.) and return as a dictionary
     with a key for each section. Entries without a section header (i.e. old config files)
-    are returned under the Default key
-    :param path: path of config file
-    :return: dict of file contents
+    are returned under the Default key.
+    :param path: Path to config file.
+    :return: dict of file contents.
     """
     this_key = "default"
     items = {this_key: []}
@@ -279,11 +278,11 @@ def read_config_file(path):
 
 def write_config_file(path, values):
     """
-    Write a dictionary of config values to a file
-    :param path: path of config file
-    :param values: dictionary of key/value pairs to write
+    Write a dictionary of config values to a file.
+    :param path: Path to config file.
+    :param values: dict of key/value pairs to write.
     """
-    LOG.debug("writing values to config: %s", values)
+    LOG.debug("Writing values to config: %s", values)
     try:
         with open(path, "w+") as fp:
             for k, v in values.items():
@@ -291,18 +290,18 @@ def write_config_file(path, values):
                 for item in v:
                     fp.write("{}\n".format(item))
     except IOError:
-        LOG.warning("could not write to config file %s", path)
+        LOG.warning("Could not write to config file %s", path)
 
 
 def update_config_file(path, key, val, overwrite=True):
     """
-    Write a single key/value pair to a config file, leaving the other keys unchanged
-    :param path: path of config file
-    :param key: key to write to
-    :param val: value to write, as a list
-    :param overwrite: True to replace the existing value, False to append the new value
+    Write a single key/value pair to a config file, leaving the other keys unchanged.
+    :param path: Path to config file.
+    :param key: Key to write to.
+    :param val: Value to write, as a list.
+    :param overwrite: True to replace the existing value, False to append the new value.
     """
-    LOG.debug("updating config key %s", key)
+    LOG.debug("Updating config key %s", key)
     config = read_config_file(path)
     if not isinstance(val, list):
         val = [val]
@@ -319,20 +318,20 @@ def update_config_file(path, key, val, overwrite=True):
 
 def get_config_key(path, key):
     """
-    Read a config file and return the values under one key
-    :param path: path of config file
-    :param key: key to read
-    :return: values under the key or an empty list
+    Read a config file and return the values under one key.
+    :param path: Path to config file.
+    :param key: Key to read.
+    :return: Values under the key or an empty list.
     """
     config = read_config_file(path)
     return config.get(key, [])
 
 
 def is_osx():
-    """Check current operating system is OSX"""
+    """Check current operating system is OSX."""
     return platform.system() == "Darwin"
 
 
 def is_windows():
-    """Check current operating system is Windows"""
+    """Check current operating system is Windows."""
     return platform.system() == "Windows"

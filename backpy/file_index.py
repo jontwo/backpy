@@ -65,13 +65,17 @@ class FileIndex:
             self.__exclusion_rules__.extend(global_skips[0].split(","))
             LOG.debug("init exclusion rules = %s", self.__exclusion_rules__)
         if adb:
-            LOG.debug("new FileIndex for %s, adb=True", path)
+            LOG.debug("New FileIndex for %s, adb=True", path)
         # suppress warning when reading an existing index
         if not reading and not self.is_valid(path):
-            LOG.warning("root dir %s does not exist or is excluded", path)
+            LOG.warning("Root dir %s does not exist or is excluded", path)
 
     def is_valid(self, f):
-        """Checks if the item exists and is not skipped."""
+        """
+        Checks if the item exists and is not skipped.
+        :param f: File path to check.
+        :return: bool.
+        """
         if self.__adb__:  # pragma: no cover
             if re.match(".*/cache", f):
                 return False
@@ -96,11 +100,11 @@ class FileIndex:
     def gen_index(self):
         """Generates the file index for the current working directory."""
         if self.__adb__:  # pragma: no cover
-            LOG.info("generating index of android device")
+            LOG.info("Generating index of android device")
             self.adb_read_folder(self.__path__)
             return
 
-        LOG.info("generating index of %s", self.__path__)
+        LOG.info("Generating index of %s", self.__path__)
         for dirname, dirnames, filenames in os.walk(self.__path__):
             if not self.is_valid(dirname):
                 continue
@@ -110,7 +114,7 @@ class FileIndex:
                     self.__dirs__.add(fullpath)
                 else:
                     dirnames.remove(subdirname)
-                    LOG.debug("skipping directory: %s", fullpath)
+                    LOG.debug("Skipping directory: %s", fullpath)
             for filename in filenames:
                 fullname = os.path.join(dirname, filename)
                 if not self.is_valid(fullname):
@@ -134,10 +138,10 @@ class FileIndex:
 
     def file_hash(self, f, exact_match=True):
         """
-        Get the hash of the given file
-        :param f: file path to check
-        :param exact_match: if the path must match exactly
-        :return: hex string hash of file if found, else None
+        Get the hash of the given file.
+        :param f: File path to check.
+        :param exact_match: True if the path must match exactly.
+        :return: Hex string hash of file if found, else None.
         """
         if exact_match:
             return self.__files__[f] if f in self.__files__ else None
@@ -147,10 +151,10 @@ class FileIndex:
 
     def is_folder(self, f, exact_match=True):
         """
-        Checks if the given path is in the index dir list
-        :param f: path to check
-        :param exact_match: if the path must match exactly
-        :return: bool
+        Checks if the given path is in the index dir list.
+        :param f: Path to check.
+        :param exact_match: True if the path must match exactly.
+        :return: bool.
         """
         if exact_match:
             return list_contains(f, self.__dirs__)
@@ -158,10 +162,13 @@ class FileIndex:
             return get_folder_index(f, self.__dirs__) is not None
 
     def write_index(self, path=None):
-        """Writes the current index to file."""
+        """
+        Writes the current index to file.
+        :param path: Path to index file. Uses self.__path__ / .index if not given.
+        """
         if path is None:
             path = os.path.join(self.__path__, ".index")
-        LOG.debug("writing index to %s", path)
+        LOG.debug("Writing index to %s", path)
         with open(path, "w+") as index:
             # BREAKING CHANGE: if you read this index with an old version
             # of backpy, you'll get a [adb=x] folder
@@ -172,14 +179,14 @@ class FileIndex:
 
     def read_index(self, path=None):
         """
-        Read an existing file index and populate file and directory lists
-        :param path: path to file index
+        Read an existing file index and populate file and directory lists.
+        :param path: Path to file index. Uses self.__path__ / .index if not given.
         """
         if path is None:
             path = os.path.join(self.__path__, ".index")
-        LOG.debug("reading index at %s", path)
+        LOG.debug("Reading index at %s", path)
         if not os.path.exists(path):
-            LOG.debug("not found, returning")
+            LOG.debug("Not found, returning")
             return
         index = read_config_file(path)
         for k, v in index.items():
@@ -207,7 +214,11 @@ class FileIndex:
                         self.__dirs__.add(line)
 
     def get_diff(self, index=None):
-        """Return a list of changed files."""
+        """
+        Return a list of changed files.
+        :param index: Index to compare this index to. If not given, all files are returned.
+        :return: List of changed files.
+        """
         filelist = []
         for f in self.files():
             if index is None or self.file_hash(f) != index.file_hash(f):
@@ -215,7 +226,11 @@ class FileIndex:
         return filelist
 
     def get_missing(self, index=None):
-        """Return a list of missing files."""
+        """
+        Return a list of missing files.
+        :param index: Index to compare this index to. If not given, en empty list is returned.
+        :return: List of missing files.
+        """
         if not index:
             return []
         return [x for x in index.files() if x not in self.files()]
@@ -223,10 +238,10 @@ class FileIndex:
     def adb_read_folder(self, path):  # pragma: no cover
         """
         Use adb to list all files and folders in path, hashing with full file path,
-        modified date and time, and size
-        :param path: full path of the folder to read
+        modified date and time, and size.
+        :param path: Full path of the folder to read.
         """
-        LOG.debug("reading adb folder %s", path)
+        LOG.debug("Reading adb folder %s", path)
         # check files in this folder
         for out in (
             subprocess.check_output(["adb", "shell", "ls", "-l", re.escape(path)])
@@ -254,7 +269,7 @@ class FileIndex:
                 f_time = line.pop(0)
                 f_name = " ".join(line)
             except IndexError:
-                LOG.warning("could not extract info from %s", file_info)
+                LOG.warning("Could not extract info from %s", file_info)
                 continue
 
             # check for slash before adding sub path

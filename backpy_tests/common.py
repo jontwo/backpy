@@ -198,6 +198,6 @@ class BackpyTest(unittest.TestCase):
             f.write(file_content)
 
     def get_backpy_version(self):
-        for line in open(os.path.join(self.project_dir, "backpy", "backpy.py")):
-            if "__version__ = " in line:
-                return eval(line.split("=")[-1])
+        for line in open(os.path.join(self.project_dir, "pyproject.toml")):
+            if line.startswith("version ="):
+                return eval(line.split(" = ")[-1])
