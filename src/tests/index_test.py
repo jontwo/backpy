@@ -1,6 +1,7 @@
 """Tests for file_index module."""
 
 import os
+from pathlib import Path
 
 from backpy.backpy import add_global_skip
 from backpy.backup import TEMP_DIR
@@ -90,8 +91,19 @@ class IndexTest(BackpyTest):
 
         self.assertCountEqual(expected_rules, actual_rules)
 
-    def test_is_valid_bad_file(self):
+    def test_is_valid__does_not_exist(self):
         self.assertFalse(self.index.is_valid("bad file"))
+
+    def test_is_valid__mac_temp_file(self):
+        temp_path = Path(TEMP_DIR) / "._some_mac_file"
+        temp_path.touch()
+        self.assertFalse(self.index.is_valid(temp_path))
+
+    def test_is_valid__office_temp_file(self):
+        temp_path = Path(TEMP_DIR) / "~some_office_file"
+        temp_path.touch()
+        print(temp_path)
+        self.assertFalse(self.index.is_valid(temp_path))
 
     def test_is_valid_no_rules(self):
         self.assertTrue(self.index.is_valid(self.get_one_four_five_path()))

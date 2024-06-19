@@ -68,7 +68,7 @@ def read_backup(path):
     try:
         with closing(tarfile.open(path, "r:*")) as tar:
             tar.extract(".index", temp_path)
-    except (OSError, tarfile.TarError):
+    except (OSError, tarfile.TarError):  # pragma: no cover
         LOG.exception("Could not read backup")
 
     index = FileIndex(temp_path, reading=True)

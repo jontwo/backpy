@@ -30,6 +30,7 @@ import logging
 import os
 import re
 import subprocess
+from pathlib import Path
 
 from .helpers import (
     CONFIG_FILE,
@@ -65,7 +66,7 @@ class FileIndex:
             self.__exclusion_rules__.extend(global_skips[0].split(","))
             LOG.debug("init exclusion rules = %s", self.__exclusion_rules__)
         if adb:
-            LOG.debug("New FileIndex for %s, adb=True", path)
+            LOG.debug("New FileIndex for %s, adb=True", path)  # pragma: no cover
         # suppress warning when reading an existing index
         if not reading and not self.is_valid(path):
             LOG.warning("Root dir %s does not exist or is excluded", path)
@@ -89,12 +90,16 @@ class FileIndex:
             return False
         if self.__exclusion_rules__:
             for regex in self.__exclusion_rules__:
-                if is_windows():
-                    if fnmatch.fnmatch(f, regex):
-                        return False
-                else:
-                    if fnmatch.fnmatchcase(f, regex):
-                        return False
+                match_func = fnmatch.fnmatch if is_windows() else fnmatch.fnmatchcase
+                if match_func(f, regex):
+                    return False
+
+        # Exclude Mac and Office temp files
+        if Path(f).name.startswith("._"):
+            return False
+        if Path(f).name.startswith("~"):
+            return False
+
         return True
 
     def gen_index(self):
