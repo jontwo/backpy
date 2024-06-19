@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = 'backpy'
 version = '1.6.4'
 description = 'Python backup utility'
-requires-python = ">= 3.8"
+requires-python = ">= 3.9"
 authors = [
     {name = 'Steffen Schneider', email = 'stes@users.noreply.github.com'}
 ]
@@ -20,9 +20,10 @@ classifiers=[
     'Development Status :: 4 - Beta',
     'Environment :: Console',
     'License :: OSI Approved :: BSD License',
-    'Programming Language :: Python :: 3.8',
     'Programming Language :: Python :: 3.9',
     'Programming Language :: Python :: 3.10',
+    'Programming Language :: Python :: 3.11',
+    'Programming Language :: Python :: 3.12',
     'Topic :: System :: Archiving :: Backup'
 ]
 urls = {Homepage = 'https://github.com/jontwo/backpy'}
@@ -69,4 +70,4 @@ supported_extensions = ["py"]
 
 [tool.black]
 line-length = 100
-target-version = ['py38', 'py39', 'py310']
+target-version = ['py39', 'py310', 'py311', 'py312']

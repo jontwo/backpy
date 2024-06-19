@@ -51,14 +51,14 @@ class SometimesRotatingFileHandler(logging.handlers.RotatingFileHandler):  # pra
 class SpecialFormatter(logging.Formatter):
     """Override the Python formatter to add custom logging."""
 
-    FORMATS = {
-        logging.DEBUG: "DEBUG: %(lineno)d: %(message)s",
-        logging.INFO: "%(message)s",
-        "DEFAULT": "%(levelname)s: %(message)s",
+    STYLES = {
+        logging.DEBUG: logging.PercentStyle("DEBUG: %(lineno)d: %(message)s"),
+        logging.INFO: logging.PercentStyle("%(message)s"),
+        "DEFAULT": logging.PercentStyle("%(levelname)s: %(message)s"),
     }
 
     def format(self, record):  # noqa: A003,D102
-        self._fmt = self.FORMATS.get(record.levelno, self.FORMATS["DEFAULT"])
+        self._style = self.STYLES.get(record.levelno, self.STYLES["DEFAULT"])
         return super().format(record)
 
 
